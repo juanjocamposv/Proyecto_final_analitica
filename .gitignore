@@ -3,6 +3,10 @@ data/raw/*
 data/interim/*
 data/processed/*
 !data/*/.gitkeep
+Data/*.csv
+Data/*.xlsx
+Data_Padel/*.csv
+Data_Padel/*.xlsx
 
 # Python
 __pycache__/
