@@ -18,7 +18,10 @@ DATA_RAW = RAIZ / 'data' / 'raw'
 DATA_INTERIM = RAIZ / 'data' / 'interim'
 DATA_PROCESSED = RAIZ / 'data' / 'processed'
 
+# Video: el CSV original (655 MB, no versionado) se convierte una vez a Parquet, un archivo por
+# partido, en data/raw/video/ (versionado, D19). El pipeline lee siempre el Parquet.
 ARCHIVO_VIDEO = DATA_RAW / 'Base_Videos_Final_202602.csv'
+CARPETA_VIDEO = DATA_RAW / 'video'
 ARCHIVO_TRAZA = DATA_RAW / 'Traza_Partidos_202602.xlsx'
 ARCHIVO_FORMULARIO = DATA_RAW / 'Datos_Jugadores_Padel_202602.xlsx'
 
@@ -63,31 +66,58 @@ def leer_formulario(ruta=None):
     return formulario.dropna(how='all').reset_index(drop=True)
 
 
-def columnas_video(ruta=None):
-    """Nombres de las columnas del CSV de video sin cargar sus filas."""
-    return list(pd.read_csv(ruta or ARCHIVO_VIDEO, nrows=0).columns)
+def convertir_video_a_parquet(ruta_csv=None, carpeta=None):
+    """Convierte el CSV de video a Parquet (zstd), un archivo por partido, sin cambiar su contenido.
 
-
-def leer_video(columnas=None, partidos=None, ruta=None, chunksize=200_000):
-    """Lee el CSV consolidado de video (frame × jugador).
-
-    columnas: subconjunto de columnas (recomendado: el archivo completo ocupa ~650 MB).
-    partidos: si se indica, solo conserva esos partidos (lectura por bloques).
+    Se corre una sola vez cuando llega un CSV nuevo. Los tipos se fijan sobre el archivo completo para
+    que todos los partidos compartan el mismo esquema. Devuelve un resumen por archivo.
     """
-    ruta = ruta or ARCHIVO_VIDEO
+    carpeta = carpeta or CARPETA_VIDEO
+    video = pd.read_csv(ruta_csv or ARCHIVO_VIDEO, low_memory=False)
+    for c in video.select_dtypes('object').columns:
+        video[c] = video[c].astype('string')
+    carpeta.mkdir(parents=True, exist_ok=True)
+    filas = []
+    for partido, grupo in video.groupby('partido', sort=True):
+        ruta = carpeta / f'partido_{int(partido):02d}.parquet'
+        grupo.to_parquet(ruta, compression='zstd', index=False)
+        filas.append({'archivo': ruta.name, 'filas': len(grupo), 'MB': round(ruta.stat().st_size / 1e6, 1)})
+    return pd.DataFrame(filas)
+
+
+def archivos_video(partidos=None):
+    """Archivos Parquet del video, opcionalmente solo de algunos partidos."""
+    archivos = sorted(CARPETA_VIDEO.glob('partido_*.parquet'))
+    if not archivos:
+        raise FileNotFoundError(f'No hay Parquet de video en {CARPETA_VIDEO}. Haga git pull o corra '
+                                'convertir_video_a_parquet() con el CSV original en data/raw/.')
+    if partidos is not None:
+        partidos = {int(p) for p in partidos}
+        archivos = [a for a in archivos if int(a.stem.split('_')[1]) in partidos]
+    return archivos
+
+
+def columnas_video():
+    """Nombres de las columnas del video sin cargar sus filas."""
+    import pyarrow.parquet as pq
+    return pq.read_schema(archivos_video()[0]).names
+
+
+def leer_video(columnas=None, partidos=None):
+    """Lee el video (frame × jugador) desde los Parquet por partido.
+
+    columnas: subconjunto de columnas (recomendado: el archivo completo ocupa ~2 GB en memoria).
+    partidos: si se indica, solo lee esos partidos.
+    """
     if columnas is not None:
         columnas = list(dict.fromkeys(list(columnas) + ['partido', 'punto']))
-    if partidos is None:
-        return pd.read_csv(ruta, usecols=columnas, low_memory=False)
-    partidos = set(partidos)
-    bloques = [b[b['partido'].isin(partidos)]
-               for b in pd.read_csv(ruta, usecols=columnas, low_memory=False, chunksize=chunksize)]
-    return pd.concat(bloques, ignore_index=True)
+    return pd.concat([pd.read_parquet(a, columns=columnas) for a in archivos_video(partidos)], ignore_index=True)
 
 
-def iterar_video(chunksize=200_000, columnas=None, ruta=None):
-    """Recorre el CSV de video por bloques, para perfiles del archivo completo sin cargarlo entero."""
-    return pd.read_csv(ruta or ARCHIVO_VIDEO, usecols=columnas, chunksize=chunksize, low_memory=False)
+def iterar_video(columnas=None):
+    """Recorre el video partido por partido, para perfiles del archivo completo sin cargarlo entero."""
+    for archivo in archivos_video():
+        yield pd.read_parquet(archivo, columns=columnas)
 
 
 # ── 4. Utilidades de reporte y escritura ───────────────────────────────────────
@@ -114,10 +144,13 @@ def perfil_columnas(df):
     }).rename_axis('columna')
 
 
-def guardar_tabla(df, nombre, carpeta=None):
-    """Escribe una tabla derivada como CSV UTF-8 (con BOM para abrirla bien en Excel)."""
+def guardar_tabla(df, nombre, carpeta=None, formato='csv'):
+    """Escribe una tabla derivada: CSV UTF-8 con BOM (se abre bien en Excel) o Parquet para tablas grandes."""
     carpeta = carpeta or DATA_INTERIM
     carpeta.mkdir(parents=True, exist_ok=True)
-    ruta = carpeta / f'{nombre}.csv'
-    df.to_csv(ruta, index=False, encoding='utf-8-sig')
+    ruta = carpeta / f'{nombre}.{formato}'
+    if formato == 'parquet':
+        df.to_parquet(ruta, compression='zstd', index=False)
+    else:
+        df.to_csv(ruta, index=False, encoding='utf-8-sig')
     return ruta

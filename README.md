@@ -2,22 +2,33 @@
 
 Encontrar las parejas que maximizan la probabilidad de ganar el torneo según su estilo de juego. Se parte de tres fuentes: datos de video (pose y posición por frame), la traza de partidos y el formulario de jugadores.
 
-**¿Por dónde empezar?** El trabajo completo (código, resultados y reporte de decisiones, por fases) está en un solo notebook: [notebooks/Proyecto_Parejas_Padel.ipynb](notebooks/Proyecto_Parejas_Padel.ipynb).
+**¿Por dónde empezar?** El trabajo completo (código, resultados y reporte, por fases) está en un solo notebook: [notebooks/Proyecto_Parejas_Padel.ipynb](notebooks/Proyecto_Parejas_Padel.ipynb). Este README explica los archivos del repositorio y concentra las reglas de datos, el [registro de decisiones](#registro-de-decisiones) y los [pendientes](#supuestos-y-pendientes).
+
+## Contenido
+
+1. [Fases](#fases)
+2. [Archivos del repositorio](#archivos-del-repositorio)
+3. [Datos e instalación](#datos-e-instalación)
+4. [Reglas de datos](#reglas-de-datos)
+5. [Registro de decisiones](#registro-de-decisiones)
+6. [Supuestos y pendientes](#supuestos-y-pendientes)
 
 ## Fases
 
-1. **Manejo de datos** (actual): entendimiento de las fuentes, identidad de los jugadores, limpieza, imputación y variables de pareja.
-2. **Predictiva:** regresión logística regularizada y Random Forest sobre el ganador del punto.
-3. **Distribuciones:** distribución empírica por jugador y por variable aleatoria.
-4. **Simulación:** combinaciones de parejas evaluadas con el modelo de la fase 2.
+| Fase | Contenido | Estado |
+|---|---|---|
+| 1. Manejo de datos | Fuentes, entendimiento, identidad, traza, formulario, calidad e identidad del video, limpieza, variables de jugador y de pareja (1.1–1.10) | Hecho; falta el cierre (revisión y commit) |
+| 2. Predictiva | Modelo base contra modelos avanzados, ensamblaje y bootstrap sobre el ganador del punto | Pendiente |
+| 3. Distribuciones | Distribución empírica por jugador y por variable aleatoria | Pendiente |
+| 4. Simulación | Combinaciones de parejas evaluadas con el modelo de la fase 2 | Pendiente |
 
 ## Archivos del repositorio
 
 ```
-README.md                         Este archivo: qué es cada cosa y cómo empezar
-CLAUDE.md                         Reglas, contexto y registro de decisiones del proyecto
+README.md                         Este archivo: archivos, reglas de datos, decisiones y pendientes
+CLAUDE.md                         Reglas de trabajo para el asistente de IA (Claude Code) e hitos
 requirements.txt                  Librerías de Python necesarias
-.gitignore                        Lo que no se sube a git (datos, cachés, entornos)
+.gitignore                        Lo que no se sube a git
 notebooks/
   Proyecto_Parejas_Padel.ipynb    Notebook único de trabajo: todas las fases y el reporte
 src/                              Funciones del pipeline que usa el notebook
@@ -25,55 +36,60 @@ src/                              Funciones del pipeline que usa el notebook
   datos.py                        Rutas, constantes de cancha, lectura de fuentes, utilidades
   identidades.py                  Nombres canónicos, alias y códigos de estudiante
   fuentes.py                      Limpieza de la traza y del formulario
-  video.py                        Calidad del video e identidad de cada jugador en él
+  video.py                        Calidad, identidad, pelota, atípicos y limpieza del video
+  variables.py                    Variables de estilo: jugador × punto, pareja × punto y filtros
 docs/
   diccionario.md                  Diccionario de todas las columnas (fuentes y tablas derivadas)
   pose_keypoints_map.jpg          Imagen de los puntos de pose que usa el diccionario
-data/                             (no se sube a git)
-  raw/                            Los 3 archivos de entrada, sin modificar
-  interim/                        Tablas intermedias que genera el notebook
-  processed/                      Tablas finales para el modelo (aún vacía)
+data/
+  raw/                            Datos de entrada (versionados, D19)
+    Traza_Partidos_202602.xlsx
+    Datos_Jugadores_Padel_202602.xlsx
+    video/partido_XX.parquet      Video en Parquet, un archivo por partido (27)
+  interim/                        Tablas que genera el notebook (no se suben)
+  processed/                      Tabla final para el modelo (no se sube)
 ```
 
 ### Qué es y qué hace cada archivo
 
 | Archivo | Qué es | Qué hace / cuándo usarlo |
 |---|---|---|
-| `notebooks/Proyecto_Parejas_Padel.ipynb` | El documento de trabajo del proyecto. | Se ejecuta de principio a fin (~2 min). Cada sección tiene Objetivo → Decisiones → Código → Resultado. La Fase 1 tiene las secciones 1.1 a 1.10 (la 1.2 reúne el entendimiento de los datos que antes estaba en dos notebooks aparte); las fases 2 a 4 están planificadas. Los anexos traen el registro de decisiones (A), los pendientes (B) y las tablas generadas (C). |
-| `CLAUDE.md` | Las reglas del proyecto en un solo lugar: objetivo, fuentes, calidad del video por partido, reglas de identidad y limpieza, plan de variables y modelos, prácticas de código, decisiones `D#` y supuestos sin confirmar. | Consultarlo antes de tomar cualquier decisión de datos. Lo lee también el asistente de IA (Claude Code), así que cada decisión nueva se anota ahí. |
-| `src/datos.py` | La base del pipeline. | Define las rutas de `data/`, la semilla (2026) y las medidas de la cancha. Lee las tres fuentes (`leer_video`, `leer_traza`, `leer_formulario`, `iterar_video` para recorrer el CSV grande por bloques) y trae las utilidades de reporte (`resumen_tabla`, `comparar`, `perfil_columnas`) y de escritura (`guardar_tabla`). |
-| `src/identidades.py` | La tabla de equivalencias de jugadores. | Lleva cualquier nombre de cualquier fuente a su nombre canónico (completo) y a su código de estudiante de 6 dígitos. Aquí se agregan los alias nuevos, los jugadores sin formulario y las correcciones de código. |
-| `src/fuentes.py` | La limpieza de las dos fuentes pequeñas. | Traza: controles de consistencia, corrección de erratas, códigos de los jugadores y formato largo jugador × punto. Formulario: selección de variables, escalas ordinales, imputación de los 3 jugadores sin formulario e IMC. |
-| `src/video.py` | El tratamiento del CSV de video. | Detecta los problemas de calidad de cada punto (duplicados, `y` inválida, sin pose, homografía desplazada, fps raro) y asigna a cada jugador del video su código según la traza. Aquí irá también la limpieza frame × jugador (sección 1.8). |
+| `notebooks/Proyecto_Parejas_Padel.ipynb` | El documento de trabajo del proyecto. | Se ejecuta de principio a fin (~3 min). Cada sección tiene Objetivo → Decisiones → Código → Resultado. La sección 1.2 reúne el entendimiento de los datos (incluye la evidencia para descartar la pelota y el diagnóstico de atípicos); la 1.8 es la limpieza del video. Los anexos A y B enlazan a este README; el anexo C lista las tablas generadas. |
+| `CLAUDE.md` | Instrucciones para el asistente de IA. | Cómo debe trabajar (preguntar antes de decidir, verificar, mantener el repositorio simple) y los hitos del proyecto. No tiene decisiones concretas: remite a este README. |
+| `src/datos.py` | La base del pipeline. | Rutas de `data/`, semilla (2026), medidas de la cancha, lectura de las fuentes (`leer_video`, `leer_traza`, `leer_formulario`, `iterar_video`), conversión del CSV de video a Parquet (`convertir_video_a_parquet`) y utilidades de reporte y escritura (`resumen_tabla`, `comparar`, `perfil_columnas`, `guardar_tabla`). |
+| `src/identidades.py` | La tabla de equivalencias de jugadores. | Lleva cualquier nombre de cualquier fuente a su nombre canónico y a su código de 6 dígitos. Aquí se agregan alias nuevos, jugadores sin formulario y correcciones de código. |
+| `src/fuentes.py` | La limpieza de las dos fuentes pequeñas. | Traza: controles de consistencia, erratas, códigos y formato largo jugador × punto. Formulario: variables usables, escalas ordinales, imputación de los jugadores sin formulario e IMC. |
+| `src/video.py` | El tratamiento del video. | Calidad por punto, identidad de cada track según la traza, evidencia de la pelota, diagnóstico de atípicos y limpieza frame × jugador (suavizado, límites físicos, pose, variables combinadas, golpes). |
+| `src/variables.py` | Las variables de estilo de juego. | Calcula las variables jugador × punto (estilo, movimiento, pose, golpes y ritmo; sección 1.9), arma la tabla pareja × punto relativa al rival y aplica los filtros sin mirar el resultado (sección 1.10). |
 | `src/__init__.py` | Archivo técnico de Python. | Permite hacer `from src import ...` desde el notebook. |
-| `docs/diccionario.md` | El diccionario de datos. | Parte A: cada columna de las tres fuentes crudas, con su unidad, cómo se genera y si se usa, se deriva o se descarta. Parte B: cada columna de las tablas que genera el notebook. |
-| `docs/pose_keypoints_map.jpg` | Imagen de referencia. | Muestra los puntos del cuerpo (hombro, codo, muñeca, raqueta, cabeza) que detecta el modelo de pose. La cita el diccionario. |
-| `requirements.txt` | Lista de librerías. | `pip install -r requirements.txt` instala pandas, numpy, scipy, scikit-learn, matplotlib, openpyxl y jupyter. |
-| `.gitignore` | Configuración de git. | Evita subir los datos (por tamaño y por datos personales), los cachés de Python y los entornos virtuales. |
+| `docs/diccionario.md` | El diccionario de datos. | Parte A: cada columna de las fuentes crudas (unidad, cómo se genera y uso). Parte B: cada columna de las tablas que genera el notebook. |
+| `docs/pose_keypoints_map.jpg` | Imagen de referencia. | Puntos del cuerpo que detecta el modelo de pose (hombro, codo, muñeca, raqueta y cabeza). |
+| `requirements.txt` | Lista de librerías. | `pip install -r requirements.txt`. |
+| `.gitignore` | Configuración de git. | Sube los Excel y el Parquet del video; deja fuera el CSV original, las tablas generadas, los cachés y los entornos. |
 
 ### Tablas que genera el notebook (`data/interim/`)
 
 | Tabla | Una fila por | Contenido |
 |---|---|---|
 | `equivalencias_nombres.csv` | nombre de cada fuente | Nombre original → nombre canónico → código |
-| `jugadores.csv` | jugador (32) | Variables fijas del formulario, codificadas e imputadas, más el IMC |
-| `participaciones.csv` | jugador × punto (1.132) | Equipo, fondo, lado, compañero, si ganó el punto y su track de video |
+| `jugadores.csv` | jugador (32) | Variables fijas del formulario, codificadas e imputadas, más el IMC y su estilo atacante/defensivo |
+| `participaciones.csv` | jugador × punto (1.132) | Equipo, fondo, lado, compañero, si ganó el punto, su track de video, la calidad de su limpieza y sus variables de estilo (1.9) |
 | `identidades_video.csv` | track de video (1.201) | A qué jugador corresponde cada track, cómo se asignó y si se conserva |
 | `puntos.csv` | punto (287) | Ganador, jugadores, estado del video y banderas de calidad |
+| `video_limpio.parquet` | frame × jugador (705.888) | Video limpio: posiciones suavizadas, velocidad, pose, variables combinadas y golpes |
+| `parejas_punto.csv` | punto completo (244) | Todas las variables de cada pareja (`e1_`, `e2_`) y su diferencia con el rival (`dif_`) |
+| `filtros_variables.csv` | variable descartada (83) | Qué variable salió en los filtros de la 1.10 y por qué |
+| `processed/tabla_modelo.csv` | punto completo (244) | Tabla para el modelo: objetivo y las 161 variables que pasan los filtros |
 
 El detalle de cada columna está en la parte B de [docs/diccionario.md](docs/diccionario.md).
 
-## Datos
+## Datos e instalación
 
-Los datos no se suben al repositorio por su tamaño (el CSV de video pesa ~650 MB) y porque el formulario tiene datos personales. Cada integrante copia en `data/raw/` estos tres archivos, con estos nombres exactos:
+Los datos están versionados en este repositorio, que es privado (D19). Basta con clonarlo o hacer `git pull`.
 
-- `Base_Videos_Final_202602.csv`: video consolidado (frame × jugador) de los 27 partidos con traza.
-- `Traza_Partidos_202602.xlsx`: traza de partidos (hojas `CANCHA_1` y `CANCHA_2`).
-- `Datos_Jugadores_Padel_202602.xlsx`: formulario de jugadores.
-
-Luego se ejecuta el notebook de principio a fin; las tablas derivadas quedan en `data/interim/`.
-
-## Instalación
+- `data/raw/Traza_Partidos_202602.xlsx` y `data/raw/Datos_Jugadores_Padel_202602.xlsx`: tal como llegaron.
+- `data/raw/video/partido_XX.parquet`: el CSV de video `Base_Videos_Final_202602.csv` (655 MB, demasiado grande para GitHub) convertido sin cambios, un archivo por partido (172 MB en total).
+- **Si llega un CSV de video nuevo:** se copia en `data/raw/` con ese nombre, se ejecuta `datos.convertir_video_a_parquet()` y se suben los Parquet.
 
 ```bash
 python -m venv .venv
@@ -82,6 +98,156 @@ source .venv/bin/activate     # macOS / Linux
 pip install -r requirements.txt
 ```
 
+Luego se ejecuta el notebook de principio a fin; las tablas derivadas quedan en `data/interim/`.
+
+## Reglas de datos
+
+Reglas concretas acordadas. Cada una indica su decisión `D#` ([registro](#registro-de-decisiones)).
+
+### Fuentes y cobertura
+
+| Fuente | Granularidad | Contenido |
+|---|---|---|
+| Video | frame × jugador | 718.936 filas y 74 columnas; 27 partidos y 272 puntos. El fps varía por video (`duration` = 1/fps). |
+| Traza | punto | Hojas `CANCHA_1` (16 partidos, 164 puntos) y `CANCHA_2` (11 partidos, 119 puntos); partidos a 7 puntos. La hoja `Original` programa 39 partidos, de los cuales 12 no tienen traza ni video. `TDs` y `Resultados` no se usan. |
+| Formulario | jugador | 29 filas; la hoja `Hoja 1` no se usa. |
+
+- **Llave de unión:** `(partido, punto, codigo)`, con `codigo` = `CODIGO_ESTUDIANTE` como texto de 6 dígitos. Ningún nombre es llave: todo nombre pasa por `src/identidades.py`.
+- **Coordenadas del video:** metros, con `x` ∈ [0, 10], `y` ∈ [0, 20] y red en `y = 10`. BOTTOM está en `y > 10` y, para ambos equipos, RIGHT en `x > 5` (D13).
+- **Cobertura:** de los 283 puntos de la traza:
+  - 16 no tienen video utilizable: 15 sin video y el 5-10, duplicado.
+  - 23 tienen video incompleto: 16 solo con la pareja BOTTOM (partidos 8 y 34) y 7 con 3 de los 4 jugadores.
+  - 244 tienen a los 4 jugadores identificados; solo esos entran al modelo pareja contra pareja (D20).
+
+### Casos especiales del video
+
+No hay tratamientos por partido (D26, D30). Los casos especiales se detectan con reglas generales que el notebook calcula y muestra:
+- **Duplicados exactos** de un punto dentro del partido: se conserva el de menor número (D7). Hoy aplica al partido 5, punto 10.
+- **`y` igual a `x`** en más del 95 % de las filas de un punto: la `y` se marca faltante. Hoy aplica al partido 17.
+- **Etiquetas de nombre que no concuerdan con la traza:** la identidad se asigna por posición (D12). Hoy aplica a los partidos 8 (etiquetas de jugadores que no están en su alineación), 17 (`Jugador 1–4`) y 34 (concordancia del 46 %; el track etiquetado «David Neisa» queda en la casilla de Alejandra Deza).
+- **Puntos de video sin traza:** se excluyen (D15).
+
+### Identidad de los jugadores
+
+- **Nombres (D9):** las variantes de un nombre son el mismo jugador. El nombre canónico es el completo, con dos apellidos cuando alguna fuente lo tiene (`NOMBRES_CANONICOS`).
+- **Códigos (D4, D8):** todos tienen 6 dígitos y se guardan como texto (`CORRECCIONES_CODIGO`, `JUGADORES_SIN_FORMULARIO`).
+- **Tracks del video (D12, D14):**
+  - Se usa la etiqueta del video si el partido tiene ≥50 % de filas con nombres de la alineación y ≥80 % de concordancia con la casilla (fondo, lado) de la traza.
+  - Si no, la identidad se asigna por posición contra la traza.
+  - Los `Player_N` y los tracks sin casilla compatible se descartan.
+- **Búsqueda en Teams (proceso recurrente):** todo jugador que no cruce (con videos, partidos o formularios nuevos) se lista en la sección 1.3 y se busca en Teams. Con el nombre y el código confirmados, se agrega a `src/identidades.py` y se vuelve a correr la fase 1. Hoy no hay jugadores sin cruzar.
+
+### Limpieza del video (sección 1.8)
+
+- **Solo se limpian los tracks conservados** en `identidades_video.csv`.
+- **Pelota (D24):** se descartan todas sus columnas, incluida `player_hits_ball`. Cerca del 61 % de sus posiciones son relleno o interpolación lineal (evidencia en 1.2.7). Los golpes se aproximan con picos de velocidad de raqueta.
+- **Fuera de la cancha (D29):** las posiciones hasta 0,5 m afuera se recortan al borde; las más lejanas pasan a NaN.
+- **Suavizado (D29):** media móvil centrada de 0,5 s de `x` e `y`. La velocidad y la aceleración se recalculan sobre esa trayectoria, con el fps de cada punto. No se usan las columnas originales, que son ruido de cuantización.
+- **Atípicos (D23):**
+  - Límites: velocidad 8 m/s, aceleración 10 m/s² y velocidades angulares 3.000 °/s.
+  - Velocidades en píxeles ÷ `body_scale`: percentil 99,5 de cada jugador.
+  - Tratamiento: el valor pasa a NaN y se interpola si el hueco es de ≤5 frames. Primero se quitan las posiciones con saltos del tracking y luego se recalcula todo.
+- **Píxeles:** toda medida en píxeles se divide por `body_scale`. Los ángulos y las variables `*_norm` ya son comparables.
+- **Pose:** se interpolan solo huecos de ≤5 frames; los indicadores booleanos no se interpolan. `pose_coverage` se guarda por jugador y punto.
+- **Variables combinadas (D25):**
+  - `velocidad_mps`, `aceleracion_mps2` y `desplazamiento_m` (desde `x` e `y`);
+  - `indice_vel_golpe` (promedio de las velocidades de raqueta, muñeca y codo normalizadas);
+  - `juego_aereo` (raqueta sobre el hombro o muñeca sobre la cabeza).
+- **Rol (D29):** el lado de la traza: drive = RIGHT y revés = LEFT. `en_su_lado` indica si en cada frame está en su lado.
+- **Golpes (D29):** máximos locales de la velocidad de raqueta normalizada por encima del p90 del jugador en el punto, separados al menos 0,4 s.
+- **Faltantes menores:** `team` sale del fondo de la traza y la distancia al compañero se recalcula desde las posiciones suavizadas.
+- **Descartadas:** `duration` (solo para el fps), `total_frames`, `video_duration`, `prev_*`, las coordenadas en píxeles, `upper_arm_length`, `forearm_length`, `arm_extension`, `racket_vector_x/y`, las orientaciones de antebrazo y brazo, `zone` (no es un rol), `schema_version` y `*_implausible`.
+
+### Formulario y traza
+
+- **Fuga de datos:** `Puntos_Total`, `Partidos_Jugados` y `Puntos_Por_Partido` nunca son predictoras; solo validan la traza (`Puntos_Total` coincide en 27 de 27 jugadores).
+- **Usables:** `ESTATURA`, `TALLA` (peso, D1), `MANO_DOMINANTE` (solo 2 zurdos), `NIVEL_ACTUAL_PADEL`, `TIEMPO_JUGANDO_PADEL`, `EXPERIENCIA_PADEL`, `PRACTICA_OTRO_DEPORTE_RAQUETA`, `ESTADO_FISICO`, `FRECUENCIA_DEPORTE`, `EDAD`, `GENERO` y `LESIONES_LY`. Las escalas ordinales están en `ORDINALES` (D10, D11).
+- **Descartadas:** ciudad, programa, semestre, razón y objetivo de participación, interés y clases de pádel, desayuno, género musical y comentarios. También `RITMO_CARDIACO`: tiene pocos datos (12 de 29) y no interesa (confirmado por el equipo el 2026-11-07).
+- **Lado de cancha:** el equipo 1 siempre está en BOTTOM. Entra como variable de control, sin conclusiones fuertes.
+- **Traza:** pasa todos los controles (un ganador por punto, marcador igual al acumulado, puntos consecutivos, lados fijos por partido). El equipo 1 gana el 43,1 % de los puntos.
+
+### Variables (secciones 1.9 y 1.10)
+
+Granularidad: **frame × jugador → jugador × punto → pareja × punto**, con la pareja rival como contexto.
+
+- **Estilo atacante/defensivo (D21):** atacante si pasa al menos tanto tiempo delante de la línea de saque (< 6,95 m de la red) como detrás. Se calcula por jugador × punto; el jugador es atacante si lo fue en al menos el 50 % de sus puntos. Las secciones red (0–3 m), transición (3–6,95 m) y fondo (6,95–10 m) quedan como variables descriptivas.
+- **Definiciones (D31):**
+  - quieto = velocidad por debajo de la mediana global (0,37 m/s); ráfaga = tramo de al menos 0,5 s por encima del p90 global (1,28 m/s);
+  - área = cuadros de 0,5 m pisados;
+  - variabilidad de ángulos = desviación estándar (circular para la raqueta);
+  - dirección de raqueta en 3 grupos;
+  - mínimos: track de al menos 2 s y cobertura de pose de al menos el 50 % para las variables de pose.
+- **Ritmo de juego (D22):** duración del punto y golpes por segundo, por jugador y por pareja.
+- **Jugador × punto:** profundidad media y desviación, % en cada sección, lado, área cubierta, distancia recorrida, % quieto, ráfagas rápidas, velocidad p90, % de juego aéreo, proporción por dirección de raqueta, variabilidad de ángulos, `indice_vel_golpe` p90/p95, golpes y `pose_coverage`.
+- **Pareja × punto (D32):**
+  - suma y diferencia absoluta de cada variable del jugador, más la razón mín/máx para velocidad, golpes y área;
+  - número de atacantes;
+  - cohesión (distancia entre compañeros);
+  - sincronía (correlación de velocidad y de profundidad);
+  - fijas de pareja, incluido `en_lado_mano` (diestro a la derecha o zurdo a la izquierda);
+  - duración del punto como contexto.
+  - Una fila por punto: `e1_`, `e2_` y `dif_` (equipo 1 − equipo 2).
+- **Filtros sin mirar el resultado (D33):** faltantes > 20 %, valor dominante ≥ 95 % y correlación de Pearson |r| ≥ 0,85. Se entregan todas las que pasan; los faltantes se imputan en la fase 2.
+- **Selección final (D27):** Lasso (L1) y Ridge (L2) dentro de la validación de la fase 2, para quedar con 10 a 15 variables.
+
+### Modelado (fases 2 a 4)
+
+- **Objetivo:** `PUNTO_EQUIPO_1` por punto (D3). La probabilidad de ganar el partido a 7 puntos se deriva de p(ganar el punto).
+- **Validación:** se deja un partido fuera en cada iteración; nunca se mezclan puntos del mismo partido.
+- **Modelos (D28):** un modelo base (logística regularizada) contra modelos avanzados (Random Forest y otros), un ensamblaje de modelos y bootstrap para medir la fiabilidad.
+- **Métricas:** AUC, log-loss, calibración e importancia de variables.
+- **Fase 3:** distribución empírica por jugador y por variable, comparando el bootstrap empírico contra una paramétrica ajustada.
+- **Fase 4:** ranking de parejas por probabilidad media de ganar contra el resto, con intervalos de incertidumbre.
+- Las parejas casi no se repiten (30 jugadores): el modelo aprende de características de pareja, no de identidades.
+
+## Registro de decisiones
+
+Ordenado por sección del notebook. Toda decisión nueva se agrega aquí.
+
+| # | Sección | Decisión | Fuente |
+|---|---|---|---|
+| D17 | General | Repositorio simplificado: un solo notebook (los dos de entendimiento integrados en la 1.2), un solo diccionario y `src/` en 4 módulos. Se eliminaron la guía PDF del 3-nov y el script del profesor para la traza. | Equipo (2026-11-07) |
+| D18 | General | `CLAUDE.md` solo contiene reglas de comportamiento e hitos. Las reglas de datos, las decisiones y los pendientes viven en este README, y los anexos A y B del notebook enlazan aquí. | Equipo (2026-11-07) |
+| D16 | 1.1 | Datos crudos en `data/raw/`; salidas en `data/interim/` y `data/processed/`. | Equipo (2026-11-06) |
+| D19 | 1.1 | Datos versionados en el repositorio privado: los dos Excel y el video en Parquet por partido (27 archivos, 172 MB, el mayor de 13 MB; conversión exacta verificada). El CSV original (655 MB) supera el límite de GitHub y no se sube. Majo hace el push. | Equipo (2026-11-07) |
+| D24 | 1.2.7 / 1.8 | Se descarta toda la pelota, incluida `player_hits_ball`: ~61 % de sus posiciones son relleno (50,5 %) o interpolación lineal (10,1 %), y `player_hits_ball` se deriva de esa posición (golpe = pelota a ~0,15 m) y coincide con picos de raqueta solo en el 41 % de los casos (22 % al azar). Los golpes son picos de velocidad de raqueta. | Equipo (2026-11-07) |
+| D23 | 1.2.8 / 1.8 | Atípicos: velocidad > 8 m/s, aceleración > 10 m/s² (sobre la trayectoria suavizada) y angulares > 3.000 °/s; velocidades en píxeles por encima del percentil 99,5 de cada jugador. El valor pasa a NaN y se interpola en huecos de ≤5 frames; se guarda el % corregido. Diagnóstico en 1.2.8, corrección en 1.8. | Equipo (2026-11-07) |
+| D4 | 1.3 / 1.5 | Jugadores sin formulario, con código entregado por el equipo: Alejandra Briget Deza Céspedes (407710), Juan Pablo Vanegas Herrera (356629) y Laura Sofía Rodríguez González (324764). Imputación con datos de su sexo: continuas con la media (más ruido N(0, sd) para las mujeres, con semilla fija y recorte al rango), ordinales con la mediana (la inferior si cae entre dos), categóricas con la moda. Llevan `imputado = True`. | Equipo (2026-11-06) |
+| D8 | 1.3 | Códigos de 6 dígitos como texto. Jorge García: 99999 → `099999`. José Fabián García Camargo: 1075684546 → `107568` (primeros 6). | Equipo (2026-11-06) |
+| D9 | 1.3 | Las variantes de nombre son el mismo jugador; nombre completo con dos apellidos. No se separan seguras y dudosas. | Equipo (2026-11-06) |
+| D3 | 1.4 | Variable objetivo: ganador del punto (`PUNTO_EQUIPO_1`). | Equipo (2026-11-06) |
+| D13 | 1.4 / 1.7 | `RIGTH` → `RIGHT`. Convención: BOTTOM en `y > 10` y RIGHT en `x > 5` para ambos equipos. | Verificado con los datos (99 %) |
+| D1 | 1.5 | `TALLA` es el peso en kg; IMC = `TALLA` / (`ESTATURA` en m)². | Equipo (2026-11-06) |
+| D5 | 1.5 | La fila sin nombre (152 cm, 48 kg) es Ana Catalina Suárez Caballero (337448); ya viene resuelta en el formulario. | Formulario actual (2026-11-06) |
+| D10 | 1.5 | `FRECUENCIA_DEPORTE`: «0 veces» y «No practico deportes» se unen en el nivel 0. | Equipo (confirmada 2026-11-07) |
+| D11 | 1.5 | Escalas ordinales (0 = menor) de nivel, tiempo jugando, experiencia, estado físico y frecuencia. `TIEMPO_JUGANDO_PADEL` se imputa como ordinal (mediana). | Análisis (ajuste a D4) |
+| D2 | 1.6 / 1.8 | `racket_speed`, `wrist_speed` y `elbow_speed` en px/s; angulares en °/s. fps = 1/`duration` por punto; no se asume 60. | Código del pipeline del profesor |
+| D6 | 1.6 | Los CSV de video se reciben ya generados; la base normalizada del profesor no se usa (es de otro torneo). | Revisión del repositorio del profesor (2026-11-06) |
+| D7 | 1.6 | El partido 5, punto 10, es una copia del punto 9: el video se conserva como punto 9 y el punto 10 queda sin video. Regla general: conservar el de menor número y revisar con el equipo cada duplicado nuevo. | Equipo (2026-11-06) |
+| D26 | 1.6 / 1.8 | Ningún partido recibe tratamiento especial: solo se aplican reglas generales que el notebook calcula (duplicados D7, identidad D12, `y` = `x` → `y` faltante). | Equipo (2026-11-07) |
+| D30 | General | Solo se registran conclusiones demostrables con código u observación directa de los datos. Se retiraron la «homografía desplazada» (partidos 27 y 23-3) con su bandera `y_top_distorsionada`, el «remuestreo» del partido 32 con su bandera `fps_no_estandar` y la tabla de calidad partido por partido. | Equipo (2026-11-07) |
+| D12 | 1.7 | Identidad de los tracks: por etiqueta si es coherente con la traza (≥50 % en la alineación y ≥80 % de concordancia); si no, por posición contra la traza (asignación codiciosa por filas × p(fondo) × p(lado)). Aplicado a los partidos 8, 17 y 34. | Equipo: «asignar según traza» (2026-11-06) |
+| D14 | 1.7 | Los tracks `Player_N` y los que quedan sin casilla compatible se descartan de la identidad. | Análisis |
+| D15 | 1.7 | Se excluyen los puntos de video sin traza (7-11, 11-12, 23-9 y 32-13): según la traza, esos partidos ya habían terminado. La numeración de puntos del video coincide con la de la traza. | Análisis; numeración confirmada por el equipo (2026-11-07) |
+| D25 | 1.8 | Variables combinadas: `x`/`y` → velocidad, aceleración y desplazamiento; raqueta/muñeca/codo ÷ `body_scale` → `indice_vel_golpe`; raqueta sobre el hombro o muñeca sobre la cabeza → `juego_aereo`. | Equipo (2026-11-07) |
+| D29 | 1.8 | Parámetros de la limpieza: margen de 0,5 m fuera de la cancha (recorte; más lejos, NaN); media móvil de 0,5 s; golpes = picos por encima del p90 del jugador en el punto, separados ≥ 0,4 s; rol = lado de la traza (drive/revés). | Equipo (2026-11-07) |
+| D21 | 1.9 | Estilo atacante/defensivo: zona atacante = delante de la línea de saque (< 6,95 m de la red); atacante si pasa en ella al menos tanto tiempo como detrás. Se calcula por jugador × punto y por jugador (atacante si lo fue en ≥ 50 % de sus puntos). Se agrandó la zona (antes 0–3 m) porque son jugadores aficionados que casi no se acercan a la red: solo el 1,7 % del tiempo a menos de 3 m. Las tres secciones (red, transición, fondo) quedan como variables descriptivas. | Equipo (2026-11-07, revisada) |
+| D22 | 1.9 | Ritmo de juego: duración del punto y golpes por segundo, por jugador y por pareja. | Equipo (2026-11-07) |
+| D20 | 1.10 | Al modelo pareja contra pareja solo entran los 244 puntos con los 4 jugadores identificados. | Equipo (2026-11-07) |
+| D27 | 1.10 / 2 | Selección de variables: en la fase 1, solo filtros que no usan el resultado (D33); Lasso (L1) y Ridge (L2) se aplican en la fase 2, dentro de la validación dejando un partido fuera, para no inflar las métricas. | Equipo (2026-11-07, revisada) |
+| D31 | 1.9 | Definiciones jugador × punto: quieto < mediana global de velocidad; ráfaga = tramo ≥ 0,5 s sobre el p90 global; área = cuadros de 0,5 m pisados; variabilidad de ángulos = desviación estándar (circular para la raqueta); dirección de raqueta en 3 grupos (arriba, abajo, lateral); track < 2 s → todas NaN; pose solo si la cobertura es ≥ 50 %. | Equipo (2026-11-07) |
+| D32 | 1.10 | Pareja × punto: suma y |diferencia| de cada variable del jugador (más razón mín/máx para velocidad p90, golpes por segundo y área); estilo = número de atacantes; sincronía = correlación de velocidad y de profundidad; `en_lado_mano` = diestro a la derecha o zurdo a la izquierda; una fila por punto con `e1_`, `e2_` y `dif_` = equipo 1 − equipo 2. | Equipo (2026-11-07) |
+| D33 | 1.10 | Faltantes: quedan NaN y se imputan en la fase 2 con la mediana de entrenamiento. Filtros: faltantes > 20 %, valor dominante ≥ 95 %, Pearson |r| ≥ 0,85 (se conserva la de menos faltantes; si empatan, la `dif_`). Se entregan todas las que pasan. | Equipo (2026-11-07) |
+| D28 | 2 | Comparar un modelo base con modelos avanzados, hacer un ensamblaje de modelos y usar bootstrap para medir la fiabilidad. | Equipo (2026-11-07) |
+
+## Supuestos y pendientes
+
+| Tema | Detalle | Acción |
+|---|---|---|
+| Modelos avanzados (D28) | Falta definir cuáles, además de Random Forest, y qué tipo de ensamblaje. | Se decide al empezar la fase 2, cuando la fase 1 esté terminada |
+| Datos faltantes | 15 puntos de la traza sin video. Los 12 partidos programados sin traza ni video aparecen en `Partidos_Jugados` con 0 puntos. | Confirmar si se jugaron; si llegan datos, se vuelve a correr la fase 1 |
+| Apellidos | 5 jugadores con un solo apellido en todas las fuentes (Jeronimo Coy, Jorge García, Juliana Gómez, Marcela Velásquez, Miguel Delgado). | Opcional: buscar en Teams |
+
 ## Origen
 
-El proyecto parte del material del profesor (`padel-vision-analytics-light`). De ese material solo se conservó lo necesario para la analítica: la documentación de las columnas del CSV de video (reescrita en `docs/diccionario.md`), el mapa de keypoints y las dimensiones de la cancha. No se usa el pipeline de visión (YOLO, pose, tracking) porque los CSV de video se reciben ya generados.
+El proyecto parte del material del profesor (`padel-vision-analytics-light`). De ese material solo se conservó lo necesario para la analítica: la documentación de las columnas del CSV de video (reescrita en `docs/diccionario.md`), el mapa de keypoints y las dimensiones de la cancha. No se usa el pipeline de visión (YOLO, pose, tracking), porque los CSV de video se reciben ya generados.

@@ -1,5 +1,8 @@
-# Datos: no se versionan (tamaño y datos personales del formulario).
+# Datos (D19): se versionan los dos Excel y el video en Parquet por partido (repo privado).
+# El CSV original de video (655 MB) supera el límite de GitHub y no se sube.
 data/raw/*
+!data/raw/*.xlsx
+!data/raw/video/
 data/interim/*
 data/processed/*
 !data/*/.gitkeep
