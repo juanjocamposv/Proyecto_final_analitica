@@ -17,8 +17,8 @@ Encontrar las parejas que maximizan la probabilidad de ganar el torneo según su
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| 1. Manejo de datos | Fuentes, entendimiento, identidad, traza, formulario, calidad e identidad del video, limpieza, variables de jugador y de pareja (1.1–1.10) | Hecho; falta el cierre (revisión y commit) |
-| 2. Predictiva | Modelo base contra modelos avanzados, ensamblaje y bootstrap sobre el ganador del punto | Pendiente |
+| 1. Manejo de datos | Fuentes, entendimiento, identidad, traza, formulario, calidad e identidad del video, limpieza, variables de jugador y de pareja, variables para el modelo (1.1–1.11) | Hecho |
+| 2. Predictiva | Modelo base contra modelos avanzados, ensamblaje y bootstrap sobre el ganador del punto | 2.1–2.4 hechas (Miguel); falta 2.5–2.8 |
 | 3. Distribuciones | Distribución empírica por jugador y por variable aleatoria | Pendiente |
 | 4. Simulación | Combinaciones de parejas evaluadas con el modelo de la fase 2 | Pendiente |
 
@@ -31,6 +31,7 @@ requirements.txt                  Librerías de Python necesarias
 .gitignore                        Lo que no se sube a git
 notebooks/
   Proyecto_Parejas_Padel.ipynb    Notebook único de trabajo: todas las fases y el reporte
+  referencias/                    Notebooks del profesor que se replican en la fase 2 (solo consulta)
 src/                              Funciones del pipeline que usa el notebook
   __init__.py                     Marca src/ como paquete y lista sus módulos
   datos.py                        Rutas, constantes de cancha, lectura de fuentes, utilidades
@@ -38,6 +39,7 @@ src/                              Funciones del pipeline que usa el notebook
   fuentes.py                      Limpieza de la traza y del formulario
   video.py                        Calidad, identidad, pelota, atípicos y limpieza del video
   variables.py                    Variables de estilo: jugador × punto, pareja × punto y filtros
+  modelo.py                       Fase 2: evaluación común (validación por partido, métricas y gráficos)
 docs/
   diccionario.md                  Diccionario de todas las columnas (fuentes y tablas derivadas)
   pose_keypoints_map.jpg          Imagen de los puntos de pose que usa el diccionario
@@ -55,12 +57,14 @@ data/
 | Archivo | Qué es | Qué hace / cuándo usarlo |
 |---|---|---|
 | `notebooks/Proyecto_Parejas_Padel.ipynb` | El documento de trabajo del proyecto. | Se ejecuta de principio a fin (~3 min). Cada sección tiene Objetivo → Decisiones → Código → Resultado. La sección 1.2 reúne el entendimiento de los datos (incluye la evidencia para descartar la pelota y el diagnóstico de atípicos); la 1.8 es la limpieza del video. Los anexos A y B enlazan a este README; el anexo C lista las tablas generadas. |
+| `notebooks/referencias/` | Notebooks de clase del profesor. | Solo consulta: la fase 2 replica su estructura y su código. No se ejecutan ni forman parte del pipeline. |
 | `CLAUDE.md` | Instrucciones para el asistente de IA. | Cómo debe trabajar (preguntar antes de decidir, verificar, mantener el repositorio simple) y los hitos del proyecto. No tiene decisiones concretas: remite a este README. |
 | `src/datos.py` | La base del pipeline. | Rutas de `data/`, semilla (2026), medidas de la cancha, lectura de las fuentes (`leer_video`, `leer_traza`, `leer_formulario`, `iterar_video`), conversión del CSV de video a Parquet (`convertir_video_a_parquet`) y utilidades de reporte y escritura (`resumen_tabla`, `comparar`, `perfil_columnas`, `guardar_tabla`). |
 | `src/identidades.py` | La tabla de equivalencias de jugadores. | Lleva cualquier nombre de cualquier fuente a su nombre canónico y a su código de 6 dígitos. Aquí se agregan alias nuevos, jugadores sin formulario y correcciones de código. |
 | `src/fuentes.py` | La limpieza de las dos fuentes pequeñas. | Traza: controles de consistencia, erratas, códigos y formato largo jugador × punto. Formulario: variables usables, escalas ordinales, imputación de los jugadores sin formulario e IMC. |
 | `src/video.py` | El tratamiento del video. | Calidad por punto, identidad de cada track según la traza, evidencia de la pelota, diagnóstico de atípicos y limpieza frame × jugador (suavizado, límites físicos, pose, variables combinadas, golpes). |
 | `src/variables.py` | Las variables de estilo de juego. | Calcula las variables jugador × punto (estilo, movimiento, pose, golpes y ritmo; sección 1.9), arma la tabla pareja × punto relativa al rival y aplica los filtros sin mirar el resultado (sección 1.10). |
+| `src/modelo.py` | La evaluación de la fase 2. | `predecir_cv` (entrena con un partido fuera e imputa con la mediana del train), `metricas` (AUC por pliegue, log-loss, Brier, accuracy, F1) y `graficar_evaluacion` (AUC por partido o ROC, calibración y matriz de confusión). Todos los modelos de la 2.3 a la 2.7 pasan por aquí. |
 | `src/__init__.py` | Archivo técnico de Python. | Permite hacer `from src import ...` desde el notebook. |
 | `docs/diccionario.md` | El diccionario de datos. | Parte A: cada columna de las fuentes crudas (unidad, cómo se genera y uso). Parte B: cada columna de las tablas que genera el notebook. |
 | `docs/pose_keypoints_map.jpg` | Imagen de referencia. | Puntos del cuerpo que detecta el modelo de pose (hombro, codo, muñeca, raqueta y cabeza). |
@@ -188,14 +192,15 @@ Granularidad: **frame × jugador → jugador × punto → pareja × punto**, con
   - duración del punto como contexto.
   - Una fila por punto: `e1_`, `e2_` y `dif_` (equipo 1 − equipo 2).
 - **Filtros sin mirar el resultado (D33):** faltantes > 20 %, valor dominante ≥ 95 % y correlación de Pearson |r| ≥ 0,85. Se entregan todas las que pasan; los faltantes se imputan en la fase 2.
-- **Selección final (D27):** Lasso (L1) y Ridge (L2) dentro de la validación de la fase 2, para quedar con 10 a 15 variables.
+- **Variables para las fases 2 a 4 (D34, sección 1.11):** 19 variables `dif_` en `variables.VARIABLES_MODELO`, todas reconstruibles desde cada jugador con `variables.combinar_pareja` (verificado: error 0 en los 244 puntos).
+- **Selección final (D27):** Lasso (L1) y Ridge (L2) dentro de la validación de la fase 2, sobre esas 19, para quedar con 10 a 15 variables.
 
 ### Modelado (fases 2 a 4)
 
 - **Objetivo:** `PUNTO_EQUIPO_1` por punto (D3). La probabilidad de ganar el partido a 7 puntos se deriva de p(ganar el punto).
-- **Validación:** se deja un partido fuera en cada iteración; nunca se mezclan puntos del mismo partido.
+- **Partición (D35, sección 2.1):** test = 5 de los 25 partidos (20 %, `GroupShuffleSplit`, `random_state=0`), que no se toca hasta la 2.8. Validación cruzada dentro de los 20 partidos de train, dejando un partido fuera (`LeaveOneGroupOut`, 20 pliegues). Nunca se mezclan puntos del mismo partido.
 - **Modelos (D28):** un modelo base (logística regularizada) contra modelos avanzados (Random Forest y otros), un ensamblaje de modelos y bootstrap para medir la fiabilidad.
-- **Métricas:** AUC, log-loss, calibración e importancia de variables.
+- **Métricas (D36):** AUC por pliegue, log-loss, Brier, calibración e importancia de variables. La referencia mínima es el naive de la 2.2: log-loss 0,696 y Brier 0,251 en la validación cruzada.
 - **Fase 3:** distribución empírica por jugador y por variable, comparando el bootstrap empírico contra una paramétrica ajustada.
 - **Fase 4:** ranking de parejas por probabilidad media de ganar contra el resto, con intervalos de incertidumbre.
 - Las parejas casi no se repiten (30 jugadores): el modelo aprende de características de pareja, no de identidades.
@@ -238,12 +243,18 @@ Ordenado por sección del notebook. Toda decisión nueva se agrega aquí.
 | D31 | 1.9 | Definiciones jugador × punto: quieto < mediana global de velocidad; ráfaga = tramo ≥ 0,5 s sobre el p90 global; área = cuadros de 0,5 m pisados; variabilidad de ángulos = desviación estándar (circular para la raqueta); dirección de raqueta en 3 grupos (arriba, abajo, lateral); track < 2 s → todas NaN; pose solo si la cobertura es ≥ 50 %. | Equipo (2026-11-07) |
 | D32 | 1.10 | Pareja × punto: suma y |diferencia| de cada variable del jugador (más razón mín/máx para velocidad p90, golpes por segundo y área); estilo = número de atacantes; sincronía = correlación de velocidad y de profundidad; `en_lado_mano` = diestro a la derecha o zurdo a la izquierda; una fila por punto con `e1_`, `e2_` y `dif_` = equipo 1 − equipo 2. | Equipo (2026-11-07) |
 | D33 | 1.10 | Faltantes: quedan NaN y se imputan en la fase 2 con la mediana de entrenamiento. Filtros: faltantes > 20 %, valor dominante ≥ 95 %, Pearson |r| ≥ 0,85 (se conserva la de menos faltantes; si empatan, la `dif_`). Se entregan todas las que pasan. | Equipo (2026-11-07) |
+| D34 | 1.11 | Variables para las fases 2 a 4: 19 `dif_` que se reconstruyen desde cada jugador (estilo y posición 5, movimiento 6, nivel y atributos fijos 8). Se quita `dif_suma_mujer`: r = −0,85 con `dif_suma_estatura_cm` y VIF 10,3 (estatura 12,8); sin ella el VIF máximo es 4,1. Fuera: pose y golpes, cohesión y sincronía, duración del punto, `pose_coverage`, las de poca variación y las repetidas. | Equipo (2026-11-16) |
+| D35 | 2.1 | Partición como en los notebooks del profesor (train/test 80/20 con `random_state=0` y validación cruzada en train), pero por partido: test = partidos 5, 10, 18, 26 y 29 (52 puntos); train = 20 partidos (192 puntos) con un pliegue por partido. | Equipo (2026-11-16) |
+| D36 | 2.2 | Evaluación común (`src/modelo.py`): imputación por mediana dentro de cada pliegue y AUC calculado dentro de cada partido validado y promediado (como `cross_val_score(scoring='roc_auc')`). Con todas las predicciones juntas el naive da AUC 0,271 en vez de 0,5 (correlación −0,98 entre lo real de cada partido y su predicción). Log-loss, Brier, accuracy y F1 con todas las predicciones juntas. Los partidos 28 y 35 no tienen AUC (una sola clase). | Equipo (2026-11-16) |
+| D37 | 2.3 | Interpretación de la logística con `statsmodels`: variables imputadas con la mediana del train y estandarizadas con el train (odds ratio por una desviación estándar), y errores estándar agrupados por partido (`cov_type='cluster'`). | Análisis (2026-11-16) |
+| D38 | 2.4 | La penalización de LASSO/Ridge (`C`) y la profundidad del árbol se eligen por el log-loss de la validación cruzada por partido; el AUC por pliegue se muestra al lado. `min_samples_leaf=10` fijo en el árbol. En `scikit-learn` 1.8 el castigo se elige con `l1_ratio` (1 = LASSO, 0 = Ridge). | Análisis (2026-11-16) |
 | D28 | 2 | Comparar un modelo base con modelos avanzados, hacer un ensamblaje de modelos y usar bootstrap para medir la fiabilidad. | Equipo (2026-11-07) |
 
 ## Supuestos y pendientes
 
 | Tema | Detalle | Acción |
 |---|---|---|
+| Variables finales (D27) | LASSO conserva 7 de las 19 (nivel sumado, % quieto, IMC, desbalance de nivel, velocidad p90, diferencia de profundidad entre compañeros y `prof_sd`), por debajo de la meta de 10–15, y no deja ninguna de estilo atacante/defensivo. Ridge conserva las 19 con un log-loss casi igual (0,655 vs 0,651). | Decidir con el equipo: las 7 de LASSO, forzar 10–15 o usar Ridge con las 19 |
 | Modelos avanzados (D28) | Falta definir cuáles, además de Random Forest, y qué tipo de ensamblaje. | Se decide al empezar la fase 2, cuando la fase 1 esté terminada |
 | Datos faltantes | 15 puntos de la traza sin video. Los 12 partidos programados sin traza ni video aparecen en `Partidos_Jugados` con 0 puntos. | Confirmar si se jugaron; si llegan datos, se vuelve a correr la fase 1 |
 | Apellidos | 5 jugadores con un solo apellido en todas las fuentes (Jeronimo Coy, Jorge García, Juliana Gómez, Marcela Velásquez, Miguel Delgado). | Opcional: buscar en Teams |

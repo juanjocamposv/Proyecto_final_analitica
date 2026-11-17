@@ -199,3 +199,38 @@ def filtrar_variables(tabla, excluir=('partido', 'punto', 'punto_equipo_1')):
         else:
             reporte.append({'variable': c, 'filtro': 'correlación', 'detalle': f'|r| = {corr.loc[c, par]:.2f} con {par}'})
     return conservadas, pd.DataFrame(reporte)
+
+
+# ══ 3. Variables para las fases 2 a 4 (1.11) ═══════════════════════════════════
+# 19 variables dif_ que se reconstruyen desde cada jugador (D34). dif_suma_mujer sale por |r| = 0,85 con la estatura.
+VARIABLES_MODELO = [
+    # estilo y posición
+    'dif_suma_atacante', 'dif_absdif_atacante', 'dif_absdif_prof_media_m', 'dif_suma_prof_sd_m', 'dif_suma_pct_en_su_lado',
+    # movimiento
+    'dif_suma_vel_p90', 'dif_razon_vel_p90', 'dif_suma_area_m2', 'dif_razon_area_m2', 'dif_suma_pct_quieto',
+    'dif_suma_rafagas_por_min',
+    # nivel y atributos fijos (control)
+    'dif_suma_nivel_padel', 'dif_absdif_nivel_padel', 'dif_suma_tiempo_jugando_padel', 'dif_suma_practica_otra_raqueta',
+    'dif_suma_frecuencia_deporte', 'dif_suma_estatura_cm', 'dif_suma_imc', 'dif_absdif_mujer',
+]
+
+
+def combinar_pareja(j1, j2, variables=VARIABLES_MODELO):
+    """De dos jugadores a su pareja: suma, |diferencia| o razón mín/máx según el nombre (D32). Sin el prefijo dif_."""
+    pareja = {}
+    for v in variables:
+        tipo, base = v.removeprefix('dif_').split('_', 1)       # p. ej. 'suma', 'vel_p90'
+        a, b = j1[base], j2[base]
+        if tipo == 'suma':
+            pareja[v] = a + b
+        elif tipo == 'absdif':
+            pareja[v] = abs(a - b)
+        else:  # razón: NaN si falta alguno o si el mayor es 0, como en tabla_parejas
+            pareja[v] = np.minimum(a, b) / np.maximum(a, b) if np.maximum(a, b) > 0 else np.nan
+    return pareja
+
+
+def vif(tabla, columnas):
+    """VIF de cada columna (diagonal de la inversa de la matriz de correlación), imputando con la mediana."""
+    x = tabla[columnas].fillna(tabla[columnas].median())
+    return pd.Series(np.diag(np.linalg.inv(x.corr().to_numpy())), index=columnas, name='VIF').sort_values(ascending=False)

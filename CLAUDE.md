@@ -23,8 +23,11 @@ Este archivo solo tiene reglas de trabajo e hitos. Todo lo concreto está en otr
 - [x] **1.8** Limpieza del video frame × jugador → `data/interim/video_limpio.parquet`.
 - [x] **1.9** Variables jugador × punto (estilo con la línea de saque, ritmo, profundidad, movimiento, raqueta/pose, golpes) → `participaciones` y `jugadores`.
 - [x] **1.10** Variables pareja × punto y filtros sin resultado → `data/processed/tabla_modelo.csv` (244 puntos, 161 variables).
-- [ ] **Cierre de la fase 1** Todo verificado → commit y push (solo entonces).
-- [ ] **Fase 2** Modelo base contra modelos avanzados, ensamblaje y bootstrap; validación dejando un partido fuera. No se empieza hasta cerrar la fase 1.
+- [x] **1.11** Variables para las fases 2 a 4 (D34): 19 `dif_` reconstruibles desde cada jugador.
+- [x] **Cierre de la fase 1** Commit y push (`9847c3c`).
+- [x] **2.1–2.4** Partición por partido (D35), evaluación común `src/modelo.py` (D36), logística (D37), LASSO/Ridge y árbol (D38).
+- [ ] **2.5–2.8** Random Forest y SVM con tuning, bagging y boosting, ensamblaje, bootstrap y comparación final.
+- [ ] **Fase 2 (detalle)** Se replica al pie de la letra la forma de los notebooks del profesor (`notebooks/referencias/`). Reparto: 2.1–2.4 (preparación, evaluación común, naive y logística, Lasso/Ridge y árbol) y 2.5–2.8 (Random Forest y SVM con tuning, bagging y boosting, ensamblaje, bootstrap y comparación final).
 - [ ] **Fase 3** Distribuciones empíricas por jugador y variable.
 - [ ] **Fase 4** Simulación de parejas y ranking con incertidumbre.
 
@@ -40,7 +43,7 @@ Este archivo solo tiene reglas de trabajo e hitos. Todo lo concreto está en otr
    - Las reglas de datos nuevas van a «Reglas de datos» del README.
    - Aquí solo se actualizan los hitos y, si cambian, las reglas de trabajo.
 4. **Notebook único.** Todo avance se agrega en su sección de `Proyecto_Parejas_Padel.ipynb`, con el formato Objetivo → Decisiones (D#) → Código → Resultado. No se crean notebooks nuevos.
-5. **Código en `src/`.** Son 5 módulos: `datos`, `identidades`, `fuentes`, `video` y `variables`; cada fase siguiente agrega uno (`modelo.py`, `simulacion.py`).
+5. **Código en `src/`.** Son 6 módulos: `datos`, `identidades`, `fuentes`, `video`, `variables` y `modelo` (fase 2); la fase 4 agrega `simulacion.py`.
    - Funciones reutilizables para cualquier `(partido, punto)`.
    - Los casos especiales se detectan con reglas generales, no con listas de partidos.
 6. **Verificar antes de reportar.**
