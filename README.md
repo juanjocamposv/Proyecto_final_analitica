@@ -18,7 +18,7 @@ Encontrar las parejas que maximizan la probabilidad de ganar el torneo según su
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1. Manejo de datos | Fuentes, entendimiento, identidad, traza, formulario, calidad e identidad del video, limpieza, variables de jugador y de pareja, variables para el modelo (1.1–1.11) | Hecho |
-| 2. Predictiva | Modelo base contra modelos avanzados, ensamblaje y bootstrap sobre el ganador del punto | 2.1–2.4 hechas (Miguel); falta 2.5–2.8 |
+| 2. Predictiva | Modelo base contra modelos avanzados, ensamblaje y bootstrap sobre el ganador del punto | 2.1–2.5 ejecutadas y documentadas; 2.6–2.8 pendientes |
 | 3. Distribuciones | Distribución empírica por jugador y por variable aleatoria | Pendiente |
 | 4. Simulación | Combinaciones de parejas evaluadas con el modelo de la fase 2 | Pendiente |
 
@@ -248,14 +248,17 @@ Ordenado por sección del notebook. Toda decisión nueva se agrega aquí.
 | D36 | 2.2 | Evaluación común (`src/modelo.py`): imputación por mediana dentro de cada pliegue y AUC calculado dentro de cada partido validado y promediado (como `cross_val_score(scoring='roc_auc')`). Con todas las predicciones juntas el naive da AUC 0,271 en vez de 0,5 (correlación −0,98 entre lo real de cada partido y su predicción). Log-loss, Brier, accuracy y F1 con todas las predicciones juntas. Los partidos 28 y 35 no tienen AUC (una sola clase). | Equipo (2026-11-16) |
 | D37 | 2.3 | Interpretación de la logística con `statsmodels`: variables imputadas con la mediana del train y estandarizadas con el train (odds ratio por una desviación estándar), y errores estándar agrupados por partido (`cov_type='cluster'`). | Análisis (2026-11-16) |
 | D38 | 2.4 | La penalización de LASSO/Ridge (`C`) y la profundidad del árbol se eligen por el log-loss de la validación cruzada por partido; el AUC por pliegue se muestra al lado. `min_samples_leaf=10` fijo en el árbol. En `scikit-learn` 1.8 el castigo se elige con `l1_ratio` (1 = LASSO, 0 = Ridge). | Análisis (2026-11-16) |
-| D28 | 2 | Comparar un modelo base con modelos avanzados, hacer un ensamblaje de modelos y usar bootstrap para medir la fiabilidad. | Equipo (2026-11-07) |
+| D39 | 2.5 | todas las combinaciones se comparan con los 20 pliegues por partido de la 2.1 y se eligen por log-loss de las predicciones reunidas (D38). Se usa una función propia (`buscar`) y no `GridSearchCV`: este promedia el log-loss de cada pliegue, mientras que aquí se calcula sobre todas las predicciones juntas, igual que en la 2.2 (D36). La grilla SVM se evalúa completa; la búsqueda aleatoria se reserva para el espacio más amplio del Random Forest. No se usa optimización bayesiana: la superficie observada es plana; las ocho mejores combinaciones de cada método quedan entre log-loss 0,651 y 0,655, así que una búsqueda más inteligente no tiene dónde mejorar. **Limitación:** los hiperparámetros se eligen con los mismos pliegues con los que se reporta (sin validación anidada), así que la métrica del mejor modelo es algo optimista. El bootstrap por partido del final resume la incertidumbre entre las predicciones observadas, pero no elimina ese sesgo de selección. | Equipo (2026-11-20) |
+| D40 | 2.5 | se comparan 100, 300 y 500 árboles, junto con profundidad, tamaño mínimo de hoja, variables candidatas y fracción de observaciones por árbol. El tamaño mínimo de hoja nunca baja de 3. | Equipo (2026-11-20) |
+| D41 | 2.5 | el escalado se ajusta dentro de cada pliegue. Se comparan kernels `rbf` y `linear`, `C` y `gamma`. Las probabilidades se calibran con una regresión logística sobre puntajes *out-of-fold*; también esa calibración separa partidos, nunca puntos al azar. Para `svm_lasso`, los hiperparámetros se eligieron con las 19 variables y se reutilizaron tal cual con la selección de LASSO dentro de cada pliegue; por eso la comparación con `svm` es aproximada y, si esta variante pasa a la 2.7, convendría reajustarlos. | Equipo (2026-11-20) |
+| D28 | 2 | Comparar un modelo base con modelos avanzados, hacer un ensamblaje de modelos y usar bootstrap para medir la fiabilidad. En 2.5, RF (AUC 0,601; log-loss 0,651; Brier 0,229), LASSO (0,579; 0,651; 0,229) y SVM-LASSO (0,586; 0,652; 0,229) quedan como candidatos para el ensamblaje; la elección final depende de 2.7–2.8. | Equipo / análisis (2026-11-16) |
 
 ## Supuestos y pendientes
 
 | Tema | Detalle | Acción |
 |---|---|---|
 | Variables finales (D27) | LASSO conserva 7 de las 19 (nivel sumado, % quieto, IMC, desbalance de nivel, velocidad p90, diferencia de profundidad entre compañeros y `prof_sd`), por debajo de la meta de 10–15, y no deja ninguna de estilo atacante/defensivo. Ridge conserva las 19 con un log-loss casi igual (0,655 vs 0,651). | Decidir con el equipo: las 7 de LASSO, forzar 10–15 o usar Ridge con las 19 |
-| Modelos avanzados (D28) | Falta definir cuáles, además de Random Forest, y qué tipo de ensamblaje. | Se decide al empezar la fase 2, cuando la fase 1 esté terminada |
+| Modelos avanzados (D28) | 2.5 ejecutada: RF y SVM calibrada se compararon mediante validación por partido. RF ofrece el mayor AUC, pero con alta variabilidad entre partidos; LASSO y RF tienen *log-loss* prácticamente empatado. La comparación no reemplaza la evaluación final en test. | Probar candidatos en el ensamblaje 2.7; reservar el test y el bootstrap para 2.8 |
 | Datos faltantes | 15 puntos de la traza sin video. Los 12 partidos programados sin traza ni video aparecen en `Partidos_Jugados` con 0 puntos. | Confirmar si se jugaron; si llegan datos, se vuelve a correr la fase 1 |
 | Apellidos | 5 jugadores con un solo apellido en todas las fuentes (Jeronimo Coy, Jorge García, Juliana Gómez, Marcela Velásquez, Miguel Delgado). | Opcional: buscar en Teams |
 
