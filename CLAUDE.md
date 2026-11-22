@@ -26,8 +26,10 @@ Este archivo solo tiene reglas de trabajo e hitos. Todo lo concreto está en otr
 - [x] **1.11** Variables para las fases 2 a 4 (D34): 19 `dif_` reconstruibles desde cada jugador.
 - [x] **Cierre de la fase 1** Commit y push (`9847c3c`).
 - [x] **2.1–2.4** Partición por partido (D35), evaluación común `src/modelo.py` (D36), logística (D37), LASSO/Ridge y árbol (D38).
-- [ ] **2.5–2.8** Random Forest y SVM con tuning, bagging y boosting, ensamblaje, bootstrap y comparación final.
-- [ ] **Fase 2 (detalle)** Se replica al pie de la letra la forma de los notebooks del profesor (`notebooks/referencias/`). Reparto: 2.1–2.4 (preparación, evaluación común, naive y logística, Lasso/Ridge y árbol) y 2.5–2.8 (Random Forest y SVM con tuning, bagging y boosting, ensamblaje, bootstrap y comparación final).
+- [x] **2.5–2.6** Random Forest y SVM con tuning (D39–D41), bagging y boosting y red neuronal (D42–D45).
+- [x] **2.7** Ensamblaje de Gradient Boosting, LASSO y RF: promedio, voto ponderado y voto mayoritario (D46).
+- [x] **2.7–2.8** Mejora del ensamblaje (D47), regla fija y comparación en test con bootstrap (D48), modelo para la fase 4 (D49). En test ningún modelo supera al naive: decidir con el equipo cómo sigue la fase 4.
+- [x] **Fase 2 (detalle)** Se replica al pie de la letra la forma de los notebooks del profesor (`notebooks/referencias/`). Reparto: 2.1–2.4 (preparación, evaluación común, naive y logística, Lasso/Ridge y árbol) y 2.5–2.8 (Random Forest y SVM con tuning, bagging y boosting, ensamblaje, bootstrap y comparación final).
 - [ ] **Fase 3** Distribuciones empíricas por jugador y variable.
 - [ ] **Fase 4** Simulación de parejas y ranking con incertidumbre.
 
@@ -47,7 +49,7 @@ Este archivo solo tiene reglas de trabajo e hitos. Todo lo concreto está en otr
    - Funciones reutilizables para cualquier `(partido, punto)`.
    - Los casos especiales se detectan con reglas generales, no con listas de partidos.
 6. **Verificar antes de reportar.**
-   - Ejecutar el notebook completo (por ejemplo con `nbclient`, ~3 min) sin errores.
+   - Ejecutar el notebook completo (por ejemplo con `nbclient`, ~27 min por las búsquedas de la fase 2) sin errores.
    - No reportar números sin haberlos corrido.
    - Revisar los gráficos generados.
 7. **Datos.**
