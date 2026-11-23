@@ -147,7 +147,9 @@ def tabla_parejas(participaciones, var_jugador, jugadores, puntos, limpio):
     completos = puntos.loc[puntos['equipos_completos'], ['partido', 'punto', 'punto_equipo_1', 'frames', 'fps']]
     completos = completos.assign(duracion_punto_s=(completos['frames'] / completos['fps']).round(2))
     fijas = jugadores[['codigo', *[c for c in VARIABLES_FIJAS if c in jugadores]]]
-    jp = (participaciones[['partido', 'punto', 'codigo', 'equipo', 'lado']]
+    # Int64/Float64 de pandas pasan a float: si no, X mezcla tipos y numpy la convierte en object (statsmodels falla)
+    fijas = fijas.astype({c: float for c in fijas.columns if c != 'codigo'})
+    jp =(participaciones[['partido', 'punto', 'codigo', 'equipo', 'lado']]
           .merge(completos[['partido', 'punto']], on=['partido', 'punto'])
           .merge(var_jugador, on=LLAVE_JP, how='left').merge(fijas, on='codigo', how='left'))
     jp['en_lado_mano'] = (((jp['zurdo'] == 0) & (jp['lado'] == 'RIGHT')) | ((jp['zurdo'] == 1) & (jp['lado'] == 'LEFT'))).astype(int)

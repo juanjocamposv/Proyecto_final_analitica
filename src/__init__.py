@@ -7,4 +7,5 @@ Módulos:
 - video: calidad por punto, identidad de cada track y limpieza frame × jugador.
 - variables: variables jugador × punto y pareja × punto, filtros y variables del modelo.
 - modelo: evaluación común de la fase 2 (validación por partido, métricas y gráficos).
+- distribuciones: fase 3 (exploración, ajuste de distribuciones, por jugador y bootstrap).
 """

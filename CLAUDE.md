@@ -30,7 +30,7 @@ Este archivo solo tiene reglas de trabajo e hitos. Todo lo concreto está en otr
 - [x] **2.7** Ensamblaje de Gradient Boosting, LASSO y RF: promedio, voto ponderado y voto mayoritario (D46).
 - [x] **2.7–2.8** Mejora del ensamblaje (D47), regla fija y comparación en test con bootstrap (D48), modelo para la fase 4 (D49). En test ningún modelo supera al naive: decidir con el equipo cómo sigue la fase 4.
 - [x] **Fase 2 (detalle)** Se replica al pie de la letra la forma de los notebooks del profesor (`notebooks/referencias/`). Reparto: 2.1–2.4 (preparación, evaluación común, naive y logística, Lasso/Ridge y árbol) y 2.5–2.8 (Random Forest y SVM con tuning, bagging y boosting, ensamblaje, bootstrap y comparación final).
-- [ ] **Fase 3** Distribuciones empíricas por jugador y variable.
+- [x] **Fase 3** Distribuciones por jugador y variable (D50–D57): exploración 3.1–3.3, ajuste global 3.4, por jugador y bootstrap 3.5, tabla final 3.6 → `distribuciones_global.csv` y `distribuciones_jugador.csv`. Quedan 3 decisiones para la fase 4 (cómo sortear, dependencia entre puntos y cambio de nivel).
 - [ ] **Fase 4** Simulación de parejas y ranking con incertidumbre.
 
 ## Cómo trabajar
@@ -45,11 +45,11 @@ Este archivo solo tiene reglas de trabajo e hitos. Todo lo concreto está en otr
    - Las reglas de datos nuevas van a «Reglas de datos» del README.
    - Aquí solo se actualizan los hitos y, si cambian, las reglas de trabajo.
 4. **Notebook único.** Todo avance se agrega en su sección de `Proyecto_Parejas_Padel.ipynb`, con el formato Objetivo → Decisiones (D#) → Código → Resultado. No se crean notebooks nuevos.
-5. **Código en `src/`.** Son 6 módulos: `datos`, `identidades`, `fuentes`, `video`, `variables` y `modelo` (fase 2); la fase 4 agrega `simulacion.py`.
+5. **Código en `src/`.** Son 7 módulos: `datos`, `identidades`, `fuentes`, `video`, `variables`, `modelo` (fase 2) y `distribuciones` (fase 3); la fase 4 agrega `simulacion.py`.
    - Funciones reutilizables para cualquier `(partido, punto)`.
    - Los casos especiales se detectan con reglas generales, no con listas de partidos.
 6. **Verificar antes de reportar.**
-   - Ejecutar el notebook completo (por ejemplo con `nbclient`, ~27 min por las búsquedas de la fase 2) sin errores.
+   - Ejecutar el notebook completo (por ejemplo con `nbclient`, ~20 min por las búsquedas de la fase 2) sin errores.
    - No reportar números sin haberlos corrido.
    - Revisar los gráficos generados.
 7. **Datos.**

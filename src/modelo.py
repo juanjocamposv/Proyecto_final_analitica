@@ -14,6 +14,32 @@ from sklearn.metrics import (accuracy_score, brier_score_loss, confusion_matrix,
 from sklearn.pipeline import make_pipeline
 
 COLOR = '#2a78d6'
+AVISO_PARALELO = '`sklearn.utils.parallel.delayed` should be used'
+
+
+class _SinAvisoParalelo:
+    """Envuelve stderr y descarta solo el aviso de scikit-learn 1.9 + joblib que se repite miles de veces en los
+    modelos con n_jobs=-1 (no cambia ningún resultado). Todo lo demás pasa sin cambios."""
+
+    def __init__(self, stream):
+        self._stream = stream
+
+    def write(self, texto):
+        if AVISO_PARALELO in texto or texto.strip() == 'warnings.warn(':
+            return len(texto)
+        return self._stream.write(texto)
+
+    def __getattr__(self, nombre):
+        return getattr(self._stream, nombre)
+
+
+def silenciar_aviso_paralelo():
+    """Instala el filtro de stderr una sola vez por sesión (2.5)."""
+    import sys
+    import warnings
+    warnings.filterwarnings('ignore', message=AVISO_PARALELO)
+    if not isinstance(sys.stderr, _SinAvisoParalelo):
+        sys.stderr = _SinAvisoParalelo(sys.stderr)
 
 
 def con_imputacion(modelo):

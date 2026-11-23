@@ -3,7 +3,7 @@
 Describe cada columna que usa el proyecto: las tres fuentes crudas que llegan a `data/raw/` (parte A) y las tablas derivadas que genera el notebook [Proyecto_Parejas_Padel.ipynb](../notebooks/Proyecto_Parejas_Padel.ipynb) en `data/interim/` (parte B). Las reglas de datos y las decisiones `D#` están en el [README](../README.md#reglas-de-datos). La información del CSV de video sale de la documentación y el código del pipeline de visión del profesor (repositorio `padel-vision-analytics-light`), que no se incluye aquí.
 
 - **Parte A — Fuentes crudas:** [A1. Video](#a1-csv-de-video-base_videos_final_202602csv) · [A2. Traza](#a2-traza-de-partidos-traza_partidos_202602xlsx) · [A3. Formulario](#a3-formulario-de-jugadores-datos_jugadores_padel_202602xlsx)
-- **Parte B — Tablas derivadas:** `equivalencias_nombres`, `jugadores`, `participaciones`, `identidades_video`, `puntos` y `video_limpio`.
+- **Parte B — Tablas derivadas:** `equivalencias_nombres`, `jugadores`, `participaciones`, `identidades_video`, `puntos`, `video_limpio`, `parejas_punto`, `filtros_variables`, `processed/tabla_modelo`, `distribuciones_global` y `distribuciones_jugador`.
 
 ---
 
@@ -122,6 +122,8 @@ CSV UTF-8 con BOM, salvo `video_limpio`, que es Parquet por su tamaño. Ninguna 
 | `parejas_punto.csv` | punto completo (pareja contra pareja) | 244 | 1.10 |
 | `filtros_variables.csv` | variable descartada en los filtros | 83 | 1.10 |
 | `processed/tabla_modelo.csv` | punto completo (tabla para el modelo) | 244 | 1.10 |
+| `distribuciones_global.csv` | componente de la fase 3 | 11 | 3.6 |
+| `distribuciones_jugador.csv` | jugador × componente | 300 | 3.5 / 3.6 |
 
 ### `equivalencias_nombres.csv`
 
@@ -302,3 +304,39 @@ Ejemplos: `e1_suma_atacante` = número de atacantes de la pareja 1 (0–2); `dif
 ### `processed/tabla_modelo.csv`
 
 Tabla para la fase 2: `partido`, `punto`, `punto_equipo_1` y las 161 variables de `parejas_punto` que pasaron los filtros (mismo esquema de nombres; incluye `duracion_punto_s` como contexto). Tiene faltantes, que se imputan dentro de la validación de la fase 2 (D33).
+
+### `distribuciones_global.csv`
+
+Una fila por componente de la fase 3 (D53): la elección con los 979–1.015 jugador × punto juntos (sección 3.4) y el resumen por jugador (3.5).
+
+| Columna | Descripción |
+|---|---|
+| `variable`, `componente` | Variable de jugador × punto y pieza que se ajusta (por ejemplo, `pct_en_su_lado` → `p_100_su_lado` y `deficit_su_lado`) |
+| `tipo` | `continua`, `conteo` o `bernoulli` |
+| `definicion` | Cómo se obtiene el componente desde la variable |
+| `n` | Observaciones con las que se ajusta |
+| `distribucion_elegida`, `parametros_MLE`, `AIC` | La de menor AIC entre las no rechazadas (D52), con sus parámetros sin truncar |
+| `prueba`, `p_valor` | KS (continuas), chi² con sus grados de libertad (conteos) o IC 95 % de Wilson (Bernoulli) |
+| `segunda`, `delta_AIC_segunda` | Segunda candidata por AIC y su diferencia con la elegida (negativa si la segunda tiene menor AIC pero fue rechazada) |
+| `decision` | `paramétrica`, `bootstrap empírico (todas rechazadas)` o `bootstrap empírico (truncada rechazada)` |
+| `pct_masa_fuera_de_limites` | % de la masa de la elegida fuera del rango posible de la variable (D56) |
+| `truncada`, `parametros_truncada`, `p_valor_truncada` | Si se reestimó truncada a los límites (D56), sus parámetros y su KS |
+| `usar_en_fase4` | False para `area_m2` como continua (solo comparación; la fase 4 usa `cuadros_area`, D53) |
+| `scipy`, `kwargs` | Nombre de la distribución en `scipy.stats` y sus parámetros en JSON; `dis.distribucion(fila)` la reconstruye (truncada si corresponde) |
+| `jugadores_parametrica`, `jugadores_bootstrap`, `jugadores_global` | Número de jugadores con cada método en `distribuciones_jugador` (D57) |
+
+### `distribuciones_jugador.csv`
+
+Una fila por jugador × componente (30 jugadores × 10 componentes; `area_m2` como continua no se incluye). Es lo que sortea la fase 4 (D57).
+
+| Columna | Descripción |
+|---|---|
+| `codigo`, `nombre` | Jugador (código de 6 dígitos como texto) |
+| `componente` | Pieza de la fase 3 (D53) |
+| `n` | Observaciones del jugador en ese componente |
+| `metodo` | `parametrica` (familia global con sus parámetros), `bootstrap` (sus valores observados) o `global` (menos de 10 observaciones: distribución global) |
+| `familia`, `scipy`, `kwargs`, `parametros` | Familia, nombre en `scipy.stats`, parámetros en JSON y en texto (vacíos si `metodo` = `bootstrap`) |
+| `truncada` | La distribución va truncada a los límites de la variable (D56) |
+| `p_valor` | Prueba de bondad del jugador (KS o chi²; vacío en Bernoulli, bootstrap o global) |
+| `media_obs` | Media de sus observaciones |
+| `media_param`, `media_en_IC`, `p90_param`, `p90_en_IC` | Media y p90 de su distribución y si caen en el IC 95 % de su bootstrap (solo paramétricas continuas y de conteo) |
