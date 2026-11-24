@@ -22,7 +22,7 @@ Este archivo solo tiene reglas de trabajo e hitos. Todo lo concreto está en otr
 Notebook nuevo (D1): se migra por fase lo que sirve del anterior.
 
 - [x] **Fase 1** (1.1–1.5): entendimiento; faltantes, atípicos y tratamiento; 14 variables preliminares (D21, D22, D15); correlación (D24, quedan 12); base unificada → `data/processed/tabla_modelo.csv` (224 puntos, 448 filas, D26).
-- [ ] **Fase 2** Hechas: 2.1 test 80/20 por partido y evaluación común (validación dejando un partido fuera, simetría, R²; D28–D30) y 2.2 naive y logística por pasos (D31). Faltan: decidir la regla de los pasos, 2.3 (otros modelos) y 2.4 (ensamblaje y test).
+- [ ] **Fase 2** Hechas: 2.1 test 80/20 por partido y evaluación común (D28–D30), 2.2 naive y logística por pasos con regla estricta (D31) y 2.3 diez modelos con `GridSearchCV` por partido, grillas movidas hacia lo simple y pasos por modelo (D32–D34, D35; red neuronal con `MLPClassifier`). Falta la 2.4: ensamblaje con los 4 mejores (D36) y test.
 - [ ] **Fase 3** Migrar las distribuciones con las variables nuevas.
 - [ ] **Fase 4** Simulación de parejas y ranking con incertidumbre.
 
@@ -42,7 +42,7 @@ Notebook nuevo (D1): se migra por fase lo que sirve del anterior.
    - Funciones reutilizables para cualquier `(partido, punto)`.
    - Los casos especiales se detectan con reglas generales, no con listas de partidos.
 6. **Verificar antes de reportar.**
-   - Ejecutar el notebook completo (por ejemplo con `nbclient`; hoy tarda ~1 min) sin errores.
+   - Ejecutar el notebook completo (por ejemplo con `nbclient`; hoy tarda entre 7 y 14 min) sin errores.
    - No reportar números sin haberlos corrido.
    - Revisar los gráficos generados.
 7. **Datos.**

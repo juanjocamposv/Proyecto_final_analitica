@@ -1,15 +1,17 @@
-"""Fase 2: partición por partido y evaluación común (2.1) y selección por pasos (2.2)."""
+"""Fase 2: partición por partido y evaluación común (2.1), selección por pasos (2.2) y búsqueda de hiperparámetros (2.3)."""
 
 import numpy as np
 import pandas as pd
-from sklearn.base import clone
-from sklearn.metrics import accuracy_score, r2_score, roc_auc_score
+from sklearn.base import BaseEstimator, ClassifierMixin, clone
+from sklearn.metrics import accuracy_score, make_scorer, r2_score, roc_auc_score
+from sklearn.model_selection import GridSearchCV, LeaveOneGroupOut, cross_val_predict
 
 from .datos import SEMILLA
 from .variables import columnas
 
 CADA = 5                      # test sistemático: 1 de cada 5 partidos en orden del torneo (D29)
 REMUESTREOS = 1000            # bootstrap por partido para los intervalos del 95 % (D30)
+R2_PROBA = make_scorer(r2_score, response_method='predict_proba')   # R² de la probabilidad de ganar (D30)
 
 
 # ── 2.1 Partición ──────────────────────────────────────────────────────────────
@@ -45,21 +47,38 @@ def elegir_test(opciones, pct_cancha_2_total):
 
 
 # ── 2.1 Evaluación común (D30) ─────────────────────────────────────────────────
-def simetrizar(tabla, p):
-    """p(A gana) = promedio de p(A contra B) y 1 − p(B contra A): las dos filas de un punto suman 1."""
-    s = pd.Series(p, index=tabla.index)
-    espejo = s.groupby([tabla['partido'], tabla['punto']]).transform('sum') - s     # la otra fila del punto
-    return ((s + 1 - espejo) / 2).to_numpy()
+def _intercambiar(X):
+    """Las mismas filas vistas desde el rival: cada columna propio_ pasa a rival_ y al revés."""
+    nombres = {c: 'rival_' + c[len('propio_'):] if c.startswith('propio_') else 'propio_' + c[len('rival_'):]
+               for c in X.columns}
+    return X.rename(columns=nombres)[X.columns]
+
+
+class Simetrico(ClassifierMixin, BaseEstimator):
+    """Cualquier clasificador, pero con p(A gana) = promedio de p(A contra B) y 1 − p(B contra A) (D30)."""
+
+    def __init__(self, modelo):
+        self.modelo = modelo
+
+    def fit(self, X, y):
+        self.modelo_ = clone(self.modelo).fit(X, y)
+        self.classes_ = self.modelo_.classes_
+        return self
+
+    def predict_proba(self, X):
+        p = self.modelo_.predict_proba(X)[:, 1]
+        q = self.modelo_.predict_proba(_intercambiar(X))[:, 1]
+        s = (p + 1 - q) / 2
+        return np.column_stack([1 - s, s])
+
+    def predict(self, X):
+        return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
 
 
 def predecir(modelo, tabla, cols):
-    """Validación dejando un partido fuera: cada fila se predice con el modelo entrenado sin su partido."""
-    p = np.empty(len(tabla))
-    for partido in tabla['partido'].unique():
-        fuera = (tabla['partido'] == partido).to_numpy()
-        m = clone(modelo).fit(tabla.loc[~fuera, cols], tabla.loc[~fuera, 'gano'])
-        p[fuera] = m.predict_proba(tabla.loc[fuera, cols])[:, 1]
-    return simetrizar(tabla, p)
+    """Validación dejando un partido fuera (`cross_val_predict` por partido): probabilidad simétrica de cada fila."""
+    return cross_val_predict(Simetrico(modelo), tabla[cols], tabla['gano'], groups=tabla['partido'],
+                             cv=LeaveOneGroupOut(), method='predict_proba', n_jobs=-1)[:, 1]
 
 
 def metricas(y, p):
@@ -104,8 +123,9 @@ def diferencia_r2(tabla, p_nuevo, p_actual, muestras):
 
 # ── 2.2 Selección por pasos (D31) ──────────────────────────────────────────────
 def seleccion_por_pasos(modelo, tabla, base, grupos, muestras):
-    """Parte de `base` y agrega cada grupo si sube el R² de validación; si no, prueba sus variables una por una,
-    en orden. Devuelve las variables finales, el registro de pasos y las predicciones de cada paso probado."""
+    """Parte de `base` y agrega cada grupo solo si el intervalo del 95 % de la mejora de R² queda por encima de 0;
+    si no, prueba sus variables una por una, en orden, con la misma regla.
+    Devuelve las variables finales, el registro de pasos, las predicciones de cada paso y las del modelo final."""
     y = tabla['gano']
     actuales = list(base)
     actual = predecir(modelo, tabla, columnas(actuales))
@@ -118,7 +138,7 @@ def seleccion_por_pasos(modelo, tabla, base, grupos, muestras):
         p = predecir(modelo, tabla, columnas(actuales + nuevas))
         predicciones[nombre] = p
         dif, (inf, sup) = diferencia_r2(tabla, p, actual, muestras)
-        queda = dif > 0
+        queda = inf > 0
         pasos.append({'paso': nombre, 'agrega': ', '.join(nuevas), 'r2': r2_score(y, p), 'dif_vs_actual': dif,
                       'dif_IC95': f'[{inf:.3f}; {sup:.3f}]', 'se_queda': queda})
         if queda:
@@ -131,7 +151,7 @@ def seleccion_por_pasos(modelo, tabla, base, grupos, muestras):
         if nuevas and not probar(f'+ {grupo}', nuevas):
             for v in nuevas:
                 probar(f'+ {v}', [v])
-    return actuales, pd.DataFrame(pasos).round(4), predicciones
+    return actuales, pd.DataFrame(pasos).round(4), predicciones, actual
 
 
 def coeficientes(modelo, tabla, cols, muestras):
@@ -143,3 +163,22 @@ def coeficientes(modelo, tabla, cols, muestras):
     c = coef(tabla)
     return pd.DataFrame({'coeficiente': c, 'odds_ratio': np.exp(c), 'IC95_inf': np.percentile(boot, 2.5, axis=0),
                          'IC95_sup': np.percentile(boot, 97.5, axis=0)}, index=cols).round(3)
+
+
+# ── 2.3 Hiperparámetros y pasos por modelo (D32, D33) ──────────────────────────
+def buscar(modelo, grilla, tabla, cols):
+    """`GridSearchCV` como en el notebook 05 del profesor, pero con un partido fuera por pliegue y R² de la probabilidad."""
+    grillas = grilla if isinstance(grilla, list) else [grilla]
+    grillas = [{f'modelo__{k}': v for k, v in g.items()} for g in grillas]
+    busqueda = GridSearchCV(Simetrico(modelo), grillas, cv=LeaveOneGroupOut(), scoring=R2_PROBA, n_jobs=-1)
+    return busqueda.fit(tabla[cols], tabla['gano'], groups=tabla['partido'])
+
+
+def ajustar(modelo, grilla, tabla, base, grupos, muestras):
+    """Busca los hiperparámetros con las variables de `base` (D33) y luego hace la selección por pasos con ellos (D32)."""
+    busqueda = buscar(modelo, grilla, tabla, columnas(base))
+    mejor = clone(busqueda.best_estimator_.modelo)
+    variables, pasos, _, final = seleccion_por_pasos(mejor, tabla, base, grupos, muestras)
+    params = {k.removeprefix('modelo__'): v for k, v in busqueda.best_params_.items()}
+    return {'modelo': mejor, 'hiperparametros': params, 'combinaciones': len(busqueda.cv_results_['params']),
+            'variables': variables, 'pasos': pasos, 'prediccion': final}
