@@ -1,174 +1,145 @@
-"""Fase 2: evaluación común de los modelos del ganador del punto (sección 2.2), ensamblaje (2.7) y modelo final (2.8).
+"""Fase 2: partición por partido y evaluación común (2.1) y selección por pasos (2.2)."""
 
-Todos los modelos pasan por las mismas funciones: se entrenan pliegue por pliegue (un partido fuera, D35),
-con los faltantes imputados por la mediana de entrenamiento (D33), y se miden con las mismas métricas.
-"""
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.base import clone
-from sklearn.calibration import calibration_curve
-from sklearn.impute import SimpleImputer
-from sklearn.metrics import (accuracy_score, brier_score_loss, confusion_matrix, f1_score, log_loss,
-                             roc_auc_score, roc_curve)
-from sklearn.pipeline import make_pipeline
+from sklearn.metrics import accuracy_score, r2_score, roc_auc_score
 
-COLOR = '#2a78d6'
-AVISO_PARALELO = '`sklearn.utils.parallel.delayed` should be used'
+from .datos import SEMILLA
+from .variables import columnas
 
-
-class _SinAvisoParalelo:
-    """Envuelve stderr y descarta solo el aviso de scikit-learn 1.9 + joblib que se repite miles de veces en los
-    modelos con n_jobs=-1 (no cambia ningún resultado). Todo lo demás pasa sin cambios."""
-
-    def __init__(self, stream):
-        self._stream = stream
-
-    def write(self, texto):
-        if AVISO_PARALELO in texto or texto.strip() == 'warnings.warn(':
-            return len(texto)
-        return self._stream.write(texto)
-
-    def __getattr__(self, nombre):
-        return getattr(self._stream, nombre)
+CADA = 5                      # test sistemático: 1 de cada 5 partidos en orden del torneo (D29)
+REMUESTREOS = 1000            # bootstrap por partido para los intervalos del 95 % (D30)
 
 
-def silenciar_aviso_paralelo():
-    """Instala el filtro de stderr una sola vez por sesión (2.5)."""
-    import sys
-    import warnings
-    warnings.filterwarnings('ignore', message=AVISO_PARALELO)
-    if not isinstance(sys.stderr, _SinAvisoParalelo):
-        sys.stderr = _SinAvisoParalelo(sys.stderr)
+# ── 2.1 Partición ──────────────────────────────────────────────────────────────
+def opciones_test(tabla, puntos):
+    """Las 5 muestras sistemáticas posibles (1 de cada 5 partidos en orden del torneo) y cómo se parecen al resto."""
+    partidos = sorted(tabla['partido'].unique())
+    cancha = puntos.groupby('partido')['cancha'].first()
+    fps = puntos.groupby('partido')['fps'].median().round()
+    equipo_1 = tabla[tabla['equipo'] == 1]
+    variables = [c for c in tabla.columns if c.startswith('propio_')]
+    filas = []
+    for k in range(CADA):
+        test = partidos[k::CADA]
+        en_test, fila_test = equipo_1['partido'].isin(test), tabla['partido'].isin(test)
+        dif = (tabla.loc[fila_test, variables].mean() - tabla.loc[~fila_test, variables].mean()) / tabla[variables].std()
+        filas.append({
+            'arranque': k + 1, 'test': test, 'partidos': len(test), 'pct_puntos': round(100 * en_test.mean(), 1),
+            'pct_cancha_2': round(100 * (cancha[test] == 2).mean()), 'fps': sorted(set(fps[test].astype(int))),
+            'gana_e1_test': round(100 * equipo_1.loc[en_test, 'gano'].mean()),
+            'gana_e1_train': round(100 * equipo_1.loc[~en_test, 'gano'].mean()),
+            'dif_estandarizada_media': round(dif.abs().mean(), 2),
+        })
+    return pd.DataFrame(filas).set_index('arranque')
 
 
-def con_imputacion(modelo):
-    """Antepone la imputación por mediana: así la mediana sale solo del train de cada pliegue (D33)."""
-    return make_pipeline(SimpleImputer(strategy='median'), modelo)
+def elegir_test(opciones, pct_cancha_2_total):
+    """Regla del test (D29): ~20 % de los partidos y de los puntos y la misma tasa de victorias del equipo 1 que el
+    train (±5 puntos); si quedan varias, la de proporción de cancha 2 más parecida al total."""
+    n = opciones['partidos'].max()
+    ok = opciones[(opciones['partidos'] == n) & opciones['pct_puntos'].between(18, 25)
+                  & ((opciones['gana_e1_test'] - opciones['gana_e1_train']).abs() <= 5)]
+    return ok.loc[(ok['pct_cancha_2'] - pct_cancha_2_total).abs().idxmin(), 'test']
 
 
-def predecir_cv(modelo, X, y, pliegues):
-    """Probabilidad de que gane el equipo 1 para cada punto, predicha por el modelo que no vio su partido."""
-    p = pd.Series(np.nan, index=X.index, name='p_equipo_1')
-    for train, val in pliegues:
-        ajustado = con_imputacion(clone(modelo)).fit(X.iloc[train], y.iloc[train])
-        p.iloc[val] = ajustado.predict_proba(X.iloc[val])[:, 1]
-    return p
+# ── 2.1 Evaluación común (D30) ─────────────────────────────────────────────────
+def simetrizar(tabla, p):
+    """p(A gana) = promedio de p(A contra B) y 1 − p(B contra A): las dos filas de un punto suman 1."""
+    s = pd.Series(p, index=tabla.index)
+    espejo = s.groupby([tabla['partido'], tabla['punto']]).transform('sum') - s     # la otra fila del punto
+    return ((s + 1 - espejo) / 2).to_numpy()
 
 
-def auc_por_pliegue(y, p, pliegues):
-    """AUC dentro de cada partido validado (D36). Los partidos con una sola clase no tienen AUC y se saltan."""
-    return pd.Series({i: roc_auc_score(y.iloc[val], p.iloc[val]) for i, (_, val) in enumerate(pliegues)
-                      if y.iloc[val].nunique() == 2}, name='AUC')
+def predecir(modelo, tabla, cols):
+    """Validación dejando un partido fuera: cada fila se predice con el modelo entrenado sin su partido."""
+    p = np.empty(len(tabla))
+    for partido in tabla['partido'].unique():
+        fuera = (tabla['partido'] == partido).to_numpy()
+        m = clone(modelo).fit(tabla.loc[~fuera, cols], tabla.loc[~fuera, 'gano'])
+        p[fuera] = m.predict_proba(tabla.loc[fuera, cols])[:, 1]
+    return simetrizar(tabla, p)
 
 
-def metricas(y, p, pliegues=None, umbral=0.5):
-    """AUC (media por pliegue si hay pliegues, D36), log-loss y Brier, y accuracy y F1 con el umbral."""
-    if pliegues is None:
-        auc = {'AUC': roc_auc_score(y, p)}
-    else:
-        aucs = auc_por_pliegue(y, p, pliegues)
-        auc = {'AUC': aucs.mean(), 'AUC_sd': aucs.std(), 'pliegues_con_AUC': len(aucs)}
-    return {**auc, 'log_loss': log_loss(y, p), 'Brier': brier_score_loss(y, p),
-            'accuracy': accuracy_score(y, p >= umbral), 'F1': f1_score(y, p >= umbral, zero_division=0)}
+def metricas(y, p):
+    """R² de las probabilidades (0 = naive, 1 = perfecto), AUC y accuracy con corte en 0,5."""
+    return {'r2': r2_score(y, p), 'auc': roc_auc_score(y, p), 'accuracy': accuracy_score(y, p >= 0.5)}
 
 
-def pesos_log_loss(y, P):
-    """Peso de cada modelo (columna de P) proporcional a 1 − log-loss, como el 1 − error del notebook 06 (D46)."""
-    ll = pd.Series({k: log_loss(y, P[k]) for k in P.columns})
-    return (1 - ll) / (1 - ll).sum()
+def remuestreos(partidos, b=REMUESTREOS, semilla=SEMILLA):
+    """b muestras de partidos con reemplazo (bootstrap por partido)."""
+    rng = np.random.default_rng(semilla)
+    return [rng.choice(partidos, size=len(partidos), replace=True) for _ in range(b)]
 
 
-def pesos_optimos(y, P):
-    """Pesos no negativos que suman 1 y minimizan el log-loss del promedio ponderado de las columnas de P (D47).
-
-    Se optimiza sobre el simplex con la parametrización softmax (Nelder-Mead, determinista); los pesos menores que
-    0,001 se dejan en 0.
-    """
-    from scipy.optimize import minimize
-    Pv, yv = P.to_numpy(), np.asarray(y)
-    softmax = lambda z: np.exp(z - z.max()) / np.exp(z - z.max()).sum()
-    objetivo = lambda z: log_loss(yv, np.clip(Pv @ softmax(z), 1e-6, 1 - 1e-6))
-    z = minimize(objetivo, np.zeros(P.shape[1]), method='Nelder-Mead',
-                 options={'maxiter': 4000, 'xatol': 1e-6, 'fatol': 1e-9}).x
-    # Los pesos residuales (< 0,001) quedan en 0 exacto: si no, desempatan al azar puntos con la misma predicción
-    w = pd.Series(softmax(z), index=P.columns)
-    w[w < 1e-3] = 0.0
-    return w / w.sum()
+def _filas(tabla, muestra):
+    por_partido = {p: np.flatnonzero(tabla['partido'].to_numpy() == p) for p in np.unique(muestra)}
+    return np.concatenate([por_partido[p] for p in muestra])
 
 
-def ensamblar_cv(p_modelos, y, pliegues, pesos='iguales'):
-    """Ensamblaje por promedio de probabilidades de validación (soft voting, D46-D47).
-
-    Cada p_modelos[k] ya viene del modelo k entrenado sin el partido validado, así que el promedio en ese
-    partido es la predicción del ensamblaje entrenado en el mismo pliegue. pesos: 'iguales' (promedio simple),
-    'log_loss' (proporcionales a 1 − log-loss) u 'optimos' (minimizan el log-loss). Los pesos de cada pliegue
-    salen solo de las predicciones de los otros partidos, nunca del que se valida. Devuelve la probabilidad y
-    los pesos usados en cada pliegue.
-    """
-    P = pd.DataFrame(p_modelos)
-    calcular = {'iguales': lambda yt, Pt: pd.Series(1 / P.shape[1], index=P.columns),
-                'log_loss': pesos_log_loss, 'optimos': pesos_optimos}[pesos]
-    p = pd.Series(np.nan, index=P.index, name='p_equipo_1')
-    usados = []
-    for train, val in pliegues:
-        w = calcular(y.iloc[train], P.iloc[train])
-        p.iloc[val] = P.iloc[val] @ w
-        usados.append(w)
-    return p, pd.DataFrame(usados).reset_index(drop=True)
+def resumen(tabla, predicciones, muestras):
+    """Métricas de cada modelo con todas las predicciones de validación e intervalo del 95 % por bootstrap de partidos."""
+    y = tabla['gano'].to_numpy()
+    filas = {}
+    for nombre, p in predicciones.items():
+        boot = pd.DataFrame([metricas(y[i], p[i]) for i in (_filas(tabla, m) for m in muestras)])
+        fila = {}
+        for m, v in metricas(y, p).items():
+            fila[m] = round(v, 3)
+            fila[f'{m}_IC95'] = f'[{boot[m].quantile(0.025):.3f}; {boot[m].quantile(0.975):.3f}]'
+        filas[nombre] = fila
+    return pd.DataFrame(filas).T
 
 
-class Ensamblaje:
-    """Modelo final de la 2.8 (D47-D49): promedio ponderado de las probabilidades de varios modelos.
-
-    Cada modelo lleva su imputación por mediana (D33). Los modelos con peso menor que 0,001 no se entrenan.
-    """
-
-    def __init__(self, modelos, pesos):
-        self.modelos, self.pesos = modelos, pd.Series(pesos, dtype=float)
-
-    def fit(self, X, y):
-        self.ajustados_ = {k: con_imputacion(clone(m)).fit(X, y) for k, m in self.modelos.items() if self.pesos[k] > 1e-3}
-        return self
-
-    def predict_proba(self, X):
-        w = self.pesos[list(self.ajustados_)]
-        p = sum(w[k] * m.predict_proba(X)[:, 1] for k, m in self.ajustados_.items()) / w.sum()
-        return np.column_stack([1 - p, p])
+def diferencia_r2(tabla, p_nuevo, p_actual, muestras):
+    """Diferencia de R² (nuevo − actual) y su intervalo del 95 % con los mismos remuestreos (pareada)."""
+    y = tabla['gano'].to_numpy()
+    difs = []
+    for m in muestras:
+        i = _filas(tabla, m)
+        difs.append(r2_score(y[i], p_nuevo[i]) - r2_score(y[i], p_actual[i]))
+    return r2_score(y, p_nuevo) - r2_score(y, p_actual), np.percentile(difs, [2.5, 97.5])
 
 
-def _estilo(ax):
-    ax.grid(alpha=0.3)
-    ax.spines[['top', 'right']].set_visible(False)
+# ── 2.2 Selección por pasos (D31) ──────────────────────────────────────────────
+def seleccion_por_pasos(modelo, tabla, base, grupos, muestras):
+    """Parte de `base` y agrega cada grupo si sube el R² de validación; si no, prueba sus variables una por una,
+    en orden. Devuelve las variables finales, el registro de pasos y las predicciones de cada paso probado."""
+    y = tabla['gano']
+    actuales = list(base)
+    actual = predecir(modelo, tabla, columnas(actuales))
+    predicciones = {'modelo 1': actual}
+    pasos = [{'paso': 'modelo 1', 'agrega': ', '.join(base), 'r2': r2_score(y, actual), 'dif_vs_actual': np.nan,
+              'dif_IC95': '', 'se_queda': True}]
+
+    def probar(nombre, nuevas):
+        nonlocal actual
+        p = predecir(modelo, tabla, columnas(actuales + nuevas))
+        predicciones[nombre] = p
+        dif, (inf, sup) = diferencia_r2(tabla, p, actual, muestras)
+        queda = dif > 0
+        pasos.append({'paso': nombre, 'agrega': ', '.join(nuevas), 'r2': r2_score(y, p), 'dif_vs_actual': dif,
+                      'dif_IC95': f'[{inf:.3f}; {sup:.3f}]', 'se_queda': queda})
+        if queda:
+            actuales.extend(nuevas)
+            actual = p
+        return queda
+
+    for grupo, variables in grupos.items():
+        nuevas = [v for v in variables if v not in actuales]
+        if nuevas and not probar(f'+ {grupo}', nuevas):
+            for v in nuevas:
+                probar(f'+ {v}', [v])
+    return actuales, pd.DataFrame(pasos).round(4), predicciones
 
 
-def graficar_evaluacion(y, p, nombre, pliegues=None, umbral=0.5):
-    """Tres gráficos: AUC por pliegue (en validación cruzada) o curva ROC (en test), calibración y matriz de confusión."""
-    fig, ax = plt.subplots(1, 3, figsize=(15, 4.5))
-    if pliegues is None:
-        fpr, tpr, _ = roc_curve(y, p)
-        ax[0].plot(fpr, tpr, color=COLOR)
-        ax[0].plot([0, 1], [0, 1], '--', color='gray')
-        ax[0].set(title=f'ROC (AUC = {roc_auc_score(y, p):.3f})', xlabel='FPR (falsos positivos)', ylabel='TPR (recall)')
-    else:
-        aucs = auc_por_pliegue(y, p, pliegues)
-        ax[0].bar(range(len(aucs)), aucs.values, color=COLOR)
-        ax[0].axhline(0.5, linestyle='--', color='gray')
-        ax[0].set(title=f'AUC por partido validado (media = {aucs.mean():.3f})', xlabel='Pliegue (partido fuera)', ylabel='AUC',
-                  ylim=(0, 1), xticks=range(len(aucs)), xticklabels=aucs.index + 1)
-    real, predicho = calibration_curve(y, p, n_bins=5, strategy='quantile')
-    ax[1].plot(predicho, real, 'o-', color=COLOR)
-    ax[1].plot([0, 1], [0, 1], '--', color='gray')
-    ax[1].set(title='Calibración', xlabel='Probabilidad predicha', ylabel='Proporción real que gana el equipo 1',
-              xlim=(0, 1), ylim=(0, 1))
-    cm = confusion_matrix(y, p >= umbral, labels=[0, 1])
-    ax[2].imshow(cm, cmap='Blues')
-    for (i, j), n in np.ndenumerate(cm):
-        ax[2].text(j, i, n, ha='center', va='center', fontsize=14, color='white' if n > (cm.max() + cm.min()) / 2 else 'black')
-    ax[2].set(title=f'Matriz de confusión (umbral {umbral})', xticks=[0, 1], yticks=[0, 1],
-              xticklabels=['pred. gana eq. 2', 'pred. gana eq. 1'], yticklabels=['gana eq. 2', 'gana eq. 1'])
-    for a in ax[:2]:
-        _estilo(a)
-    fig.suptitle(nombre)
-    plt.tight_layout()
-    plt.show()
+def coeficientes(modelo, tabla, cols, muestras):
+    """Coeficientes de la logística estandarizada con todo el train, odds ratio por 1 desviación estándar
+    e intervalo del 95 % de los coeficientes reentrenando en los remuestreos de partidos."""
+    def coef(t):
+        return clone(modelo).fit(t[cols], t['gano'])[-1].coef_[0]
+    boot = np.array([coef(tabla.iloc[_filas(tabla, m)]) for m in muestras])
+    c = coef(tabla)
+    return pd.DataFrame({'coeficiente': c, 'odds_ratio': np.exp(c), 'IC95_inf': np.percentile(boot, 2.5, axis=0),
+                         'IC95_sup': np.percentile(boot, 97.5, axis=0)}, index=cols).round(3)

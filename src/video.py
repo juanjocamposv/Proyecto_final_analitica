@@ -1,21 +1,18 @@
-"""Video (frame × jugador): calidad, identidad, evidencia de la pelota, atípicos y limpieza.
+"""Video (frame × jugador): identidad de cada track, faltantes, evidencia de la pelota y limpieza.
 
 Secciones:
-1. Calidad por punto e identidad de cada track (secciones 1.6 y 1.7). Cada track es
-   (partido, punto, player_id); la identidad sale de la etiqueta si es coherente con la traza y,
-   si no, de la posición contra la traza (D12).
-2. Evidencia para descartar la pelota (sección 1.2.7, D24).
-3. Diagnóstico de atípicos de las variables físicas (sección 1.2.8, D23).
-4. Limpieza frame × jugador (sección 1.8).
+1. Calidad por punto e identidad de cada track (sección 1.2). Cada track es (partido, punto, player_id);
+   la identidad sale de la etiqueta si es coherente con la traza y, si no, de la posición contra la traza (D17).
+2. Faltantes por familia de columnas y evidencia para descartar la pelota (sección 1.2, D14).
+3. Limpieza frame × jugador: solo posición y velocidad (sección 1.2, D20, D15).
 """
 
 import hashlib
 
 import numpy as np
 import pandas as pd
-from scipy.signal import find_peaks
 
-from .datos import ANCHO_M, DIST_RED_LINEA_SAQUE_M, LARGO_M, X_CENTRO_M, Y_RED_M
+from .datos import ANCHO_M, LARGO_M, X_CENTRO_M, Y_RED_M, iterar_video
 from .identidades import es_generico, mapa_alias, nombre_canonico
 
 LLAVE_PUNTO = ['partido', 'punto']
@@ -56,7 +53,7 @@ def diagnosticar_puntos(video):
     d.insert(3, 'tracks_genericos', v[v['_generico']].groupby(LLAVE_PUNTO)['player_id'].nunique()
              .reindex(d.index, fill_value=0))
     d['firma'] = v.groupby(LLAVE_PUNTO)[['frame_idx', 'player_id', 'player_position_x', 'player_position_y']].apply(_firma)
-    # Duplicados exactos dentro de un partido: se conserva el punto de menor número (D7).
+    # Duplicados exactos dentro de un partido: se conserva el punto de menor número (D16).
     primero = d.reset_index().groupby(['partido', 'firma'])['punto'].transform('min').values
     d['duplicado_de_punto'] = np.where(primero != d.index.get_level_values('punto'), primero, np.nan)
     d['y_invalida'] = d['pct_y_copia_x'] > UMBRAL_Y_COPIA_X
@@ -208,9 +205,44 @@ def tabla_puntos(puntos_traza, diagnostico, identidades):
     return p.sort_values(LLAVE_PUNTO).reset_index(drop=True)
 
 
-# ══ 2. Evidencia para descartar la pelota (sección 1.2.7, D24) ═════════════════
-COLUMNAS_PELOTA = ['frame_idx', 'player_id', 'ball_position_x', 'ball_position_y', 'player_hits_ball',
-                   'distance_player_to_ball_m', 'racket_speed', 'body_scale']
+# ══ 2. Faltantes por familia y evidencia de la pelota (sección 1.2, D14) ════════
+PREFIJOS_POSE = {'head', 'shoulder', 'elbow', 'wrist', 'racket', 'upper', 'forearm', 'arm', 'body', 'pose'}
+POSICION = {'player_position_x', 'player_position_y', 'distance_player_to_net_m', 'distance_player_to_teammate_m',
+            'zone', 'prev_x', 'prev_y', 'player_displacement', 'player_speed_mps', 'prev_speed', 'player_acceleration_mps2'}
+TRATAMIENTO = {
+    'identificación y tiempo': 'Usar; `team` sale de la traza',
+    'posición y movimiento': 'Limpiar y recalcular (D20)',
+    'pose y raqueta': 'Eliminar (D15)',
+    'pelota': 'Eliminar (D14)',
+    'controles de plausibilidad': 'Eliminar',
+}
+
+
+def familia(columna):
+    """Familia de una columna del video (diccionario, parte A1)."""
+    if 'ball' in columna or columna == 'time_since_last_hit':
+        return 'pelota'
+    if columna.endswith('_implausible') or columna == 'schema_version':
+        return 'controles de plausibilidad'
+    if columna.split('_')[0] in PREFIJOS_POSE:
+        return 'pose y raqueta'
+    if columna in POSICION:
+        return 'posición y movimiento'
+    return 'identificación y tiempo'
+
+
+def faltantes_por_familia():
+    """% de vacíos por familia de columnas en el video completo (se recorre partido por partido)."""
+    vacios, filas = 0, 0
+    for bloque in iterar_video():
+        vacios = vacios + bloque.isna().sum()
+        filas += len(bloque)
+    pct = 100 * vacios / filas
+    t = pct.groupby(pct.index.map(familia)).agg(columnas='size', pct_vacio_min='min', pct_vacio_max='max').round(1)
+    return t.reindex(list(TRATAMIENTO)).assign(tratamiento=list(TRATAMIENTO.values()))
+
+
+COLUMNAS_PELOTA = ['frame_idx', 'player_id', 'ball_position_x', 'ball_position_y']
 
 
 def clasificar_frames_pelota(video):
@@ -233,35 +265,13 @@ def clasificar_frames_pelota(video):
     return validos.rename('frames').to_frame().assign(pct=lambda d: (100 * d['frames'] / d['frames'].sum()).round(1))
 
 
-def golpes_frente_a_picos(video, ventana_frames=5):
-    """¿Coincide `player_hits_ball` con picos de velocidad de raqueta y con la cercanía a la pelota?"""
-    v = video.sort_values(LLAVE_TRACK + ['frame_idx']).copy()
-    golpe = _a_bool(v['player_hits_ball'])
-    rank = (v['racket_speed'] / v['body_scale']).groupby([v[c] for c in LLAVE_TRACK]).rank(pct=True)
-    pico = (rank > 0.95).astype(float)
-    cerca = pico.groupby([v[c] for c in LLAVE_TRACK]).transform(
-        lambda s: s.rolling(2 * ventana_frames + 1, center=True, min_periods=1).max())
-    return pd.DataFrame([
-        {'medida': 'filas con player_hits_ball', 'valor': int(golpe.sum())},
-        {'medida': 'partidos con algún golpe', 'valor': int(v.loc[golpe, 'partido'].nunique())},
-        {'medida': 'distancia mediana jugador–pelota en golpes (m)', 'valor': round(v.loc[golpe, 'distance_player_to_ball_m'].median(), 2)},
-        {'medida': 'distancia mediana jugador–pelota en el resto (m)', 'valor': round(v.loc[~golpe, 'distance_player_to_ball_m'].median(), 2)},
-        {'medida': f'% de golpes con pico de raqueta (top 5 %) a ±{ventana_frames} frames', 'valor': round(100 * cerca[golpe].mean(), 1)},
-        {'medida': f'% de frames cualesquiera con pico a ±{ventana_frames} frames (azar)', 'valor': round(100 * cerca.mean(), 1)},
-    ])
-
-
-# ══ 3. Atípicos de las variables físicas (sección 1.2.8, D23) ══════════════════
-VENTANA_SUAVIZADO_S = 0.5            # media móvil centrada de la posición (decisión 1.8)
-LIMITE_VELOCIDAD_MPS = 8.0           # por encima de lo que alcanza un jugador de pádel
+# ══ 3. Limpieza frame × jugador: posición y velocidad (sección 1.2) ═══════════
+VENTANA_SUAVIZADO_S = 0.5            # media móvil centrada de la posición (D20)
+LIMITE_VELOCIDAD_MPS = 8.0           # por encima de lo que alcanza un jugador de pádel (D20)
 LIMITE_ACELERACION_MPS2 = 10.0
-LIMITE_ANGULAR_DPS = 3000.0          # velocidad angular del codo o de la raqueta
-PERCENTIL_PIXELES = 0.995            # velocidades en píxeles (normalizadas): percentil por jugador
 MAX_HUECO_FRAMES = 5                 # huecos más largos quedan NaN
-VARIABLES_PIXELES = {'racket_speed': 'vel_raqueta_norm', 'wrist_speed': 'vel_muneca_norm', 'elbow_speed': 'vel_codo_norm'}
-COLUMNAS_ATIPICOS = ['frame_idx', 'player_id', 'duration', 'player_position_x', 'player_position_y', 'player_speed_mps',
-                     'player_acceleration_mps2', 'elbow_angular_velocity', 'racket_angular_velocity', 'body_scale',
-                     *VARIABLES_PIXELES]
+MARGEN_CANCHA_M = 0.5                # hasta 0,5 m afuera se recorta al borde; más lejos, NaN (D20)
+COLUMNAS_LIMPIEZA = ['frame_idx', 'player_id', 'duration', 'player_position_x', 'player_position_y']
 
 
 def _ventana(fps):
@@ -279,51 +289,6 @@ def cinematica(x, y, duracion):
     velocidad = _suavizar(np.hypot(xs.diff(), ys.diff()) / duracion, w)
     aceleracion = _suavizar(velocidad.diff() / duracion, w)
     return xs, ys, velocidad, aceleracion
-
-
-def diagnosticar_atipicos(video):
-    """Rangos de las variables físicas crudas y suavizadas frente a los límites (D23)."""
-    v = video.sort_values(LLAVE_TRACK + ['frame_idx'])
-    vel, acc = [], []
-    for _, g in v.groupby(LLAVE_TRACK):
-        _, _, ve, ac = cinematica(g['player_position_x'], g['player_position_y'], g['duration'])
-        vel.append(ve)
-        acc.append(ac)
-    suav_v, suav_a = pd.concat(vel), pd.concat(acc)
-
-    def fila(nombre, serie, limite, criterio):
-        a = serie.astype(float).abs()
-        return {'variable': nombre, 'criterio': criterio, 'limite': round(limite, 1), 'pct_faltante': round(100 * a.isna().mean(), 1),
-                'p50': round(a.median(), 2), 'p99': round(a.quantile(0.99), 2), 'max': round(a.max(), 1),
-                'pct_sobre_limite': round(100 * (a > limite).sum() / max(a.notna().sum(), 1), 2)}
-
-    filas = [
-        fila('player_speed_mps (cruda)', v['player_speed_mps'], LIMITE_VELOCIDAD_MPS, 'físico'),
-        fila('player_acceleration_mps2 (cruda)', v['player_acceleration_mps2'], LIMITE_ACELERACION_MPS2, 'físico'),
-        fila(f'velocidad suavizada {VENTANA_SUAVIZADO_S} s', suav_v, LIMITE_VELOCIDAD_MPS, 'físico'),
-        fila(f'aceleración suavizada {VENTANA_SUAVIZADO_S} s', suav_a, LIMITE_ACELERACION_MPS2, 'físico'),
-        fila('elbow_angular_velocity (°/s)', v['elbow_angular_velocity'], LIMITE_ANGULAR_DPS, 'físico'),
-        fila('racket_angular_velocity (°/s)', v['racket_angular_velocity'], LIMITE_ANGULAR_DPS, 'físico'),
-    ]
-    for col, nombre in VARIABLES_PIXELES.items():
-        norm = v[col] / v['body_scale']
-        filas.append(fila(f'{nombre} ({col} / body_scale)', norm, norm.quantile(PERCENTIL_PIXELES), 'percentil 99,5 (global; por jugador en 1.8)'))
-    return pd.DataFrame(filas)
-
-
-# ══ 4. Limpieza frame × jugador (sección 1.8) ══════════════════════════════════
-MARGEN_CANCHA_M = 0.5                # hasta 0,5 m afuera se recorta al borde; más lejos, NaN
-LIMITE_RED_M = 3.0                   # secciones descriptivas: red < 3 m ≤ transición < 6,95 m ≤ fondo
-ZONA_ATACANTE_M = DIST_RED_LINEA_SAQUE_M   # estilo (D21): atacante = más tiempo delante de la línea de saque
-GOLPE_PERCENTIL = 0.90               # pico de vel_raqueta_norm sobre el p90 del jugador en el punto
-GOLPE_SEPARACION_S = 0.4
-COLUMNAS_LIMPIEZA = ['frame_idx', 'player_id', 'duration', 'player_position_x', 'player_position_y', 'pose_available',
-                     'pose_confidence', 'elbow_angle', 'shoulder_angle', 'racket_orientation_deg', 'racket_direction',
-                     'wrist_above_head', 'racket_above_shoulder', 'wrist_height_norm', 'racket_height_norm', 'body_scale',
-                     'elbow_angular_velocity', 'racket_angular_velocity', *VARIABLES_PIXELES]
-POSE_NUMERICAS = {'pose_confidence': 'confianza_pose', 'elbow_angle': 'angulo_codo', 'shoulder_angle': 'angulo_hombro',
-                  'racket_orientation_deg': 'orientacion_raqueta', 'wrist_height_norm': 'altura_muneca_norm',
-                  'racket_height_norm': 'altura_raqueta_norm'}
 
 
 def interpolar_huecos(s, max_hueco=MAX_HUECO_FRAMES):
@@ -345,16 +310,14 @@ def _posicion_en_cancha(s, maximo):
 def _limpiar_track(g, y_invalida):
     g = g.sort_values('frame_idx').reset_index(drop=True)
     dur = g['duration']
-    fps = 1 / float(dur.median())
     x = _posicion_en_cancha(g['player_position_x'], ANCHO_M)
-    if y_invalida:
+    if y_invalida:                                     # y = x en el punto: la y queda vacía (D3)
         y = pd.Series(np.nan, index=g.index)
         fuera = x.isna() & g['player_position_x'].notna()
     else:
         y = _posicion_en_cancha(g['player_position_y'], LARGO_M)
         fuera = (x.isna() & g['player_position_x'].notna()) | (y.isna() & g['player_position_y'].notna())
     # Pasada 1: frames con velocidad suavizada imposible (saltos del tracking) pierden la posición.
-    # Con y inválida la velocidad 2D no existe: queda NaN y no se marcan saltos.
     _, _, vel, _ = cinematica(x, y, dur)
     salto = (vel > LIMITE_VELOCIDAD_MPS).to_numpy()
     x, y = interpolar_huecos(x.mask(salto)), interpolar_huecos(y.mask(salto))
@@ -362,40 +325,16 @@ def _limpiar_track(g, y_invalida):
     xs, ys, vel, acc = cinematica(x, y, dur)
     atipica = (vel > LIMITE_VELOCIDAD_MPS) | (acc.abs() > LIMITE_ACELERACION_MPS2)
     vel, acc = interpolar_huecos(vel.mask(atipica)), interpolar_huecos(acc.mask(atipica))
-    out = pd.DataFrame({
-        'frame_idx': g['frame_idx'], 'tiempo_s': (g['frame_idx'] - g['frame_idx'].min()) * float(dur.median()),
-        'fps': round(fps, 2), 'x_m': xs, 'y_m': ys, 'velocidad_mps': vel, 'aceleracion_mps2': acc,
-        'desplazamiento_m': vel * dur,
+    return pd.DataFrame({
+        'frame_idx': g['frame_idx'], 'fps': round(1 / float(dur.median()), 2), 'x_m': xs, 'y_m': ys,
+        'dist_red_m': (ys - Y_RED_M).abs(), 'velocidad_mps': vel, 'aceleracion_mps2': acc,
         'posicion_corregida': fuera.to_numpy() | salto, 'cinematica_corregida': atipica.to_numpy(),
-        'pose_disponible': _a_bool(g['pose_available']).to_numpy(),
     })
-    for col, nombre in POSE_NUMERICAS.items():
-        out[nombre] = interpolar_huecos(g[col].astype(float))
-    out['direccion_raqueta'] = g['racket_direction'].astype('string')
-    out['raqueta_sobre_hombro'] = _bool_con_nulos(g['racket_above_shoulder'])
-    out['muneca_sobre_cabeza'] = _bool_con_nulos(g['wrist_above_head'])
-    for col, nombre in [('elbow_angular_velocity', 'vel_ang_codo_dps'), ('racket_angular_velocity', 'vel_ang_raqueta_dps')]:
-        s = g[col].astype(float)
-        out[nombre] = interpolar_huecos(s.mask(s.abs() > LIMITE_ANGULAR_DPS))
-    for col, nombre in VARIABLES_PIXELES.items():
-        out[nombre] = (g[col] / g['body_scale']).to_numpy()
-    return out
-
-
-def _bool_con_nulos(serie):
-    """Texto/bool `True`/`False` con faltantes -> boolean de pandas (NA donde falta)."""
-    t = serie.astype('string').str.lower()
-    return t.map({'true': True, 'false': False}).astype('boolean')
 
 
 def limpiar_video(video, identidades, diagnostico):
-    """Tabla limpia frame × jugador de los tracks conservados (sección 1.8).
-
-    Por track: posición en cancha (margen 0,5 m), saltos del tracking, suavizado de 0,5 s, velocidad y
-    aceleración con límites físicos, pose interpolada en huecos ≤5 frames y velocidades en píxeles
-    normalizadas por body_scale. Luego: percentil 99,5 por jugador en píxeles, variables combinadas
-    (D25), rol, profundidad, distancia al compañero y golpes.
-    """
+    """Tabla limpia frame × jugador de los tracks conservados: posición en cancha, saltos del tracking,
+    suavizado de 0,5 s y velocidad y aceleración con límites físicos (D20)."""
     ids = identidades[identidades['conservar']].set_index(LLAVE_TRACK)
     y_inv = diagnostico.set_index(LLAVE_PUNTO)['y_invalida']
     v = video.merge(ids[[]].reset_index(), on=LLAVE_TRACK)
@@ -406,64 +345,9 @@ def limpiar_video(video, identidades, diagnostico):
         t.insert(0, 'partido', p)
         t.insert(1, 'punto', q)
         t.insert(3, 'player_id', pid)
-        t['codigo'], t['equipo'], t['fondo'], t['lado'] = info['codigo'], int(info['equipo']), info['fondo'], info['lado']
+        t.insert(4, 'codigo', info['codigo'])
+        t.insert(5, 'equipo', int(info['equipo']))
+        t.insert(6, 'fondo', info['fondo'])
+        t.insert(7, 'lado', info['lado'])
         partes.append(t)
-    lim = pd.concat(partes, ignore_index=True)
-
-    # Velocidades en píxeles: percentil 99,5 de cada jugador -> NaN y reconstrucción por track.
-    for nombre in VARIABLES_PIXELES.values():
-        umbral = lim.groupby('codigo')[nombre].transform(lambda s: s.quantile(PERCENTIL_PIXELES))
-        lim[nombre] = lim[nombre].mask(lim[nombre] > umbral)
-        lim[nombre] = lim.groupby(LLAVE_TRACK)[nombre].transform(interpolar_huecos)
-
-    # Variables combinadas (D25), rol (lado de la traza) y profundidad (D21).
-    lim['indice_vel_golpe'] = lim[list(VARIABLES_PIXELES.values())].mean(axis=1)
-    rh, mc = lim['raqueta_sobre_hombro'], lim['muneca_sobre_cabeza']
-    lim['juego_aereo'] = (rh.fillna(False) | mc.fillna(False)).astype('boolean').mask(rh.isna() & mc.isna())
-    lim['team'] = lim['fondo'].str.lower()
-    lim['rol'] = np.where(lim['lado'] == 'RIGHT', 'drive', 'reves')
-    lim['lado_real'] = pd.Series(np.where(lim['x_m'] > X_CENTRO_M, 'RIGHT', 'LEFT'), dtype='string').mask(lim['x_m'].isna())
-    lim['en_su_lado'] = (lim['lado_real'] == lim['lado']).astype('boolean').mask(lim['x_m'].isna())
-    lim['dist_red_m'] = (lim['y_m'] - Y_RED_M).abs()
-    lim['seccion'] = pd.cut(lim['dist_red_m'], [-np.inf, LIMITE_RED_M, DIST_RED_LINEA_SAQUE_M, np.inf],
-                            right=False, labels=['red', 'transicion', 'fondo']).astype('string')
-
-    # Distancia al compañero, recalculada con las posiciones suavizadas.
-    comp = lim[['partido', 'punto', 'frame_idx', 'equipo', 'codigo', 'x_m', 'y_m']]
-    par = comp.merge(comp, on=['partido', 'punto', 'frame_idx', 'equipo'], suffixes=('', '_c'))
-    par = par[par['codigo'] != par['codigo_c']]
-    par = par.assign(dist_companero_m=np.hypot(par['x_m'] - par['x_m_c'], par['y_m'] - par['y_m_c']))
-    lim = lim.merge(par[['partido', 'punto', 'frame_idx', 'codigo', 'dist_companero_m']],
-                    on=['partido', 'punto', 'frame_idx', 'codigo'], how='left')
-
-    # Golpes: picos de vel_raqueta_norm sobre el p90 del jugador en el punto, separados ≥ 0,4 s.
-    lim = lim.sort_values(LLAVE_TRACK + ['frame_idx']).reset_index(drop=True)
-    golpe = np.zeros(len(lim), dtype=bool)
-    for _, idx in lim.groupby(LLAVE_TRACK).indices.items():
-        s = lim['vel_raqueta_norm'].iloc[idx]
-        if s.notna().sum() < 3:
-            continue
-        sep = max(1, int(round(GOLPE_SEPARACION_S * float(lim['fps'].iloc[idx[0]]))))
-        picos, _ = find_peaks(s.fillna(0).to_numpy(), height=s.quantile(GOLPE_PERCENTIL), distance=sep)
-        golpe[idx[picos]] = True
-    lim['golpe'] = golpe
-
-    orden = ['partido', 'punto', 'frame_idx', 'player_id', 'codigo', 'equipo', 'fondo', 'lado', 'rol', 'team', 'tiempo_s',
-             'fps', 'x_m', 'y_m', 'posicion_corregida', 'dist_red_m', 'seccion', 'lado_real', 'en_su_lado',
-             'dist_companero_m', 'velocidad_mps', 'aceleracion_mps2', 'desplazamiento_m', 'cinematica_corregida',
-             'pose_disponible', *POSE_NUMERICAS.values(), 'direccion_raqueta', 'raqueta_sobre_hombro',
-             'muneca_sobre_cabeza', 'juego_aereo', 'vel_ang_codo_dps', 'vel_ang_raqueta_dps',
-             *VARIABLES_PIXELES.values(), 'indice_vel_golpe', 'golpe']
-    return lim[orden]
-
-
-def calidad_limpieza(limpio):
-    """Resumen por jugador × punto: frames, cobertura de pose, % corregido, % sin y, y golpes detectados."""
-    r = limpio.groupby(['partido', 'punto', 'codigo']).agg(
-        frames_video=('frame_idx', 'size'), pose_coverage=('pose_disponible', 'mean'),
-        pct_posicion_corregida=('posicion_corregida', 'mean'), pct_cinematica_corregida=('cinematica_corregida', 'mean'),
-        pct_y_faltante=('y_m', lambda s: s.isna().mean()), golpes=('golpe', 'sum'),
-    ).reset_index()
-    for c in ['pose_coverage', 'pct_posicion_corregida', 'pct_cinematica_corregida', 'pct_y_faltante']:
-        r[c] = (100 * r[c]).round(1)
-    return r
+    return pd.concat(partes, ignore_index=True)

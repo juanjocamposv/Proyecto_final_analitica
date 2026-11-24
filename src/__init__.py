@@ -4,8 +4,8 @@ Módulos:
 - datos: rutas, constantes de la cancha, lectura de las fuentes y utilidades de reporte.
 - identidades: nombres canónicos, alias y códigos de estudiante.
 - fuentes: limpieza de la traza y del formulario.
-- video: calidad por punto, identidad de cada track y limpieza frame × jugador.
-- variables: variables jugador × punto y pareja × punto, filtros y variables del modelo.
+- video: identidad de cada track, faltantes, evidencia de la pelota y limpieza de posición y velocidad.
+- variables: variables jugador × punto, correlación y tabla equipo × punto para el modelo.
 - modelo: evaluación común de la fase 2 (validación por partido, métricas y gráficos).
 - distribuciones: fase 3 (exploración, ajuste de distribuciones, por jugador y bootstrap).
 """

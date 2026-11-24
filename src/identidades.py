@@ -11,7 +11,7 @@ import pandas as pd
 
 # Nombre canónico (completo, con dos apellidos cuando alguna fuente lo tiene) -> alias conocidos.
 # Los alias se escriben normalizados (sin tildes, minúsculas, espacios simples). El propio nombre
-# canónico normalizado siempre es alias de sí mismo. Decisión D9.
+# canónico normalizado siempre es alias de sí mismo. Decisión D11.
 NOMBRES_CANONICOS = {
     'Alejandra Briget Deza Céspedes': [],
     'Ana Catalina Suarez Caballero': [],
@@ -47,14 +47,14 @@ NOMBRES_CANONICOS = {
     'Valentina Rodríguez Zuluaga': ['valentina rodriguez'],
 }
 
-# Jugadores que juegan pero no llenaron el formulario: código entregado por el equipo (D4).
+# Jugadores que juegan pero no llenaron el formulario: código entregado por el equipo (D9).
 JUGADORES_SIN_FORMULARIO = {
     'Alejandra Briget Deza Céspedes': {'codigo': '407710', 'genero': 'Femenino'},
     'Juan Pablo Vanegas Herrera': {'codigo': '356629', 'genero': 'Masculino'},
     'Laura Sofía Rodríguez González': {'codigo': '324764', 'genero': 'Femenino'},
 }
 
-# Códigos del formulario que no tienen 6 dígitos (D8).
+# Códigos del formulario que no tienen 6 dígitos (D10).
 CORRECCIONES_CODIGO = {
     '99999': '099999',          # Jorge García: se antepone un 0.
     '1075684546': '107568',     # José Fabián García Camargo: se conservan los primeros 6 dígitos.
@@ -115,7 +115,7 @@ def tabla_codigos(formulario):
         filas.append({'nombre': nombre_canonico(r['NOMBRE'], mapa), 'codigo': normalizar_codigo(r['CODIGO_ESTUDIANTE']),
                       'origen_codigo': 'formulario'})
     for nombre, datos in JUGADORES_SIN_FORMULARIO.items():
-        filas.append({'nombre': nombre, 'codigo': datos['codigo'], 'origen_codigo': 'equipo (D4)'})
+        filas.append({'nombre': nombre, 'codigo': datos['codigo'], 'origen_codigo': 'equipo (D9)'})
     tabla = pd.DataFrame(filas)
     if tabla['nombre'].isna().any():
         raise ValueError('Hay nombres del formulario sin entrada en NOMBRES_CANONICOS.')

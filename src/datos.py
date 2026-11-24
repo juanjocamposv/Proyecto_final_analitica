@@ -19,7 +19,7 @@ DATA_INTERIM = RAIZ / 'data' / 'interim'
 DATA_PROCESSED = RAIZ / 'data' / 'processed'
 
 # Video: el CSV original (655 MB, no versionado) se convierte una vez a Parquet, un archivo por
-# partido, en data/raw/video/ (versionado, D19). El pipeline lee siempre el Parquet.
+# partido, en data/raw/video/ (versionado, D5). El pipeline lee siempre el Parquet.
 ARCHIVO_VIDEO = DATA_RAW / 'Base_Videos_Final_202602.csv'
 CARPETA_VIDEO = DATA_RAW / 'video'
 ARCHIVO_TRAZA = DATA_RAW / 'Traza_Partidos_202602.xlsx'
@@ -97,10 +97,11 @@ def archivos_video(partidos=None):
     return archivos
 
 
-def columnas_video():
-    """Nombres de las columnas del video sin cargar sus filas."""
+def tipos_video():
+    """Tipo de cada columna del video (como quedó en el Parquet), sin cargar sus filas."""
     import pyarrow.parquet as pq
-    return pq.read_schema(archivos_video()[0]).names
+    esquema = pq.read_schema(archivos_video()[0])
+    return pd.Series({c.name: str(c.type) for c in esquema}, name='tipo')
 
 
 def leer_video(columnas=None, partidos=None):

@@ -2,7 +2,7 @@
 
 Secciones:
 1. Traza: controles de consistencia, limpieza, tabla de puntos y formato largo jugador × punto.
-2. Formulario: selección de variables, codificación ordinal, imputación (D4) y variables derivadas.
+2. Formulario: selección de variables, codificación ordinal, imputación (D9) y variables derivadas.
 """
 
 import numpy as np
@@ -78,7 +78,7 @@ def traza_larga(traza):
 # Fuga de datos: nunca predictoras; solo para validar la traza.
 COLUMNAS_VALIDACION = ['Puntos_Total', 'Partidos_Jugados', 'Puntos_Por_Partido']
 
-# Escalas ordinales (0 = menor). FRECUENCIA_DEPORTE: '0 veces' y 'No practico deportes' se unen (D10).
+# Escalas ordinales (0 = menor). FRECUENCIA_DEPORTE: '0 veces' y 'No practico deportes' se unen (D12).
 ORDINALES = {
     'NIVEL_ACTUAL_PADEL': ('nivel_padel', {'Primera vez': 0, 'Principiante': 1, 'Intermedio': 2, 'Avanzado': 3}),
     'TIEMPO_JUGANDO_PADEL': ('tiempo_jugando_padel', {'Menos de 6 meses': 0, 'Entre 6 meses y 1 año': 1, 'Más de 1 año': 2}),
@@ -87,7 +87,7 @@ ORDINALES = {
     'FRECUENCIA_DEPORTE': ('frecuencia_deporte', {'No practico deportes': 0, '0 veces': 0, '1-2 veces': 1,
                                                   '3-4 veces': 2, 'Más de 4 veces': 3}),
 }
-CONTINUAS = {'EDAD': 'edad', 'ESTATURA': 'estatura_cm', 'TALLA': 'peso_kg'}   # TALLA = peso en kg (D1)
+CONTINUAS = {'EDAD': 'edad', 'ESTATURA': 'estatura_cm', 'TALLA': 'peso_kg'}   # TALLA = peso en kg (D8)
 CATEGORICAS = {'GENERO': 'genero', 'MANO_DOMINANTE': 'mano_dominante', 'LESIONES_LY': 'lesiones_ly',
                'PRACTICA_OTRO_DEPORTE_RAQUETA': 'otro_deporte_raqueta'}
 DECIMALES = {'edad': 0, 'estatura_cm': 0, 'peso_kg': 1}
@@ -115,7 +115,7 @@ def limpiar_formulario(formulario):
 
 
 def imputar_sin_formulario(jugadores, semilla):
-    """Agrega los jugadores sin formulario (D4).
+    """Agrega los jugadores sin formulario (D9).
 
     Continuas: media de su género; a las mujeres se les suma ruido N(0, sd de las mujeres) y se
     recorta al rango observado de las mujeres. Ordinales: mediana de su género (si cae entre dos
@@ -147,7 +147,7 @@ def imputar_sin_formulario(jugadores, semilla):
 
 
 def agregar_derivadas_jugadores(jugadores):
-    """IMC (D1) e indicadores binarios de las categóricas."""
+    """IMC (D8) e indicadores binarios de las categóricas."""
     j = jugadores.copy()
     j['edad'] = j['edad'].round().astype('Int64')
     j['estatura_cm'] = j['estatura_cm'].round().astype('Int64')
