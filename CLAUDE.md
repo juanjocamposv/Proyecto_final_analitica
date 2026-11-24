@@ -15,7 +15,7 @@ Este archivo solo tiene reglas de trabajo e hitos. Todo lo concreto está en otr
 | Supuestos sin confirmar y pendientes | [README.md § Supuestos y pendientes](README.md#supuestos-y-pendientes) |
 | Significado, unidad y uso de cada columna | [docs/diccionario.md](docs/diccionario.md) (A: fuentes crudas; B: tablas derivadas) |
 | Qué hace cada archivo | [README.md § Archivos del repositorio](README.md#archivos-del-repositorio) |
-| Código y resultados | [notebooks/Proyecto_Padel.ipynb](notebooks/Proyecto_Padel.ipynb) y `src/` (el notebook anterior, `Proyecto_Parejas_Padel.ipynb`, solo se consulta para migrar las fases 2 y 3) |
+| Código y resultados | [notebooks/Proyecto_Padel.ipynb](notebooks/Proyecto_Padel.ipynb) y `src/` (el notebook anterior, `Proyecto_Parejas_Padel.ipynb`, solo se consulta para migrar la fase 3) |
 
 ## Hitos
 
@@ -42,7 +42,7 @@ Notebook nuevo (D1): se migra por fase lo que sirve del anterior.
    - Funciones reutilizables para cualquier `(partido, punto)`.
    - Los casos especiales se detectan con reglas generales, no con listas de partidos.
 6. **Verificar antes de reportar.**
-   - Ejecutar el notebook completo (por ejemplo con `nbclient`; hoy tarda unos 25 min) sin errores.
+   - Ejecutar el notebook completo (por ejemplo con `nbclient`; hoy tarda unos 30 min) sin errores.
    - No reportar números sin haberlos corrido.
    - Revisar los gráficos generados.
 7. **Datos.**

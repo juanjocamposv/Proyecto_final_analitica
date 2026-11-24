@@ -2,7 +2,7 @@
 
 Encontrar las parejas que maximizan la probabilidad de ganar el torneo según su estilo de juego. Se parte de tres fuentes: datos de video (pose y posición por frame), la traza de partidos y el formulario de jugadores.
 
-**¿Por dónde empezar?** El trabajo (código, resultados y reporte, por fases) está en [notebooks/Proyecto_Padel.ipynb](notebooks/Proyecto_Padel.ipynb). El notebook anterior, `Proyecto_Parejas_Padel.ipynb`, queda solo como consulta mientras se migran las fases 2 y 3 (D1). Este README explica los archivos del repositorio y concentra las reglas de datos, el [registro de decisiones](#registro-de-decisiones) y los [pendientes](#supuestos-y-pendientes).
+**¿Por dónde empezar?** El trabajo (código, resultados y reporte, por fases) está en [notebooks/Proyecto_Padel.ipynb](notebooks/Proyecto_Padel.ipynb). El notebook anterior, `Proyecto_Parejas_Padel.ipynb`, queda solo como consulta mientras se migra la fase 3 (D1). Este README explica los archivos del repositorio y concentra las reglas de datos, el [registro de decisiones](#registro-de-decisiones) y los [pendientes](#supuestos-y-pendientes).
 
 ## Contenido
 
@@ -17,7 +17,7 @@ Encontrar las parejas que maximizan la probabilidad de ganar el torneo según su
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| 1. Manejo de datos | Entendimiento de las tres fuentes; faltantes, atípicos y tratamiento; 14 variables preliminares jugador × punto en 3 grupos; correlación (quedan 12); tabla equipo × punto (1.1–1.5) | Hecha en el notebook nuevo (D1–D24) |
+| 1. Manejo de datos | Entendimiento de las tres fuentes; faltantes, atípicos y tratamiento; 14 variables preliminares jugador × punto en 3 grupos; correlación (quedan 12); tabla equipo × punto (1.1–1.5) | Hecha en el notebook nuevo (D1–D27) |
 | 2. Predictiva | Partición y evaluación común; naive y logística por pasos; otros modelos del curso; ensamblaje y test (2.1–2.4) | Hecha (D28–D39); rehecha con AUC y búsqueda bayesiana el 2026-11-24 |
 | 3. Distribuciones | Distribución empírica por jugador y por variable aleatoria | Por migrar |
 | 4. Simulación | Combinaciones de parejas evaluadas con el modelo de la fase 2 | Pendiente |
@@ -31,7 +31,7 @@ requirements.txt                  Librerías de Python necesarias
 .gitignore                        Lo que no se sube a git
 notebooks/
   Proyecto_Padel.ipynb            Notebook de trabajo: todas las fases y el reporte (D1)
-  Proyecto_Parejas_Padel.ipynb    Notebook anterior: solo consulta hasta migrar las fases 2 y 3
+  Proyecto_Parejas_Padel.ipynb    Notebook anterior: solo consulta hasta migrar la fase 3
   referencias/                    Notebooks del profesor que se replican en la fase 2 (solo consulta)
 src/                              Funciones del pipeline que usa el notebook
   __init__.py                     Marca src/ como paquete y lista sus módulos
@@ -40,7 +40,7 @@ src/                              Funciones del pipeline que usa el notebook
   fuentes.py                      Limpieza de la traza y del formulario
   video.py                        Identidad, faltantes, pelota y limpieza de posición y velocidad
   variables.py                    Variables jugador × punto, correlación y tabla equipo × punto
-  modelo.py                       Fase 2: partición, evaluación común y selección por pasos
+  modelo.py                       Fase 2: partición, evaluación, pasos, búsqueda bayesiana, ensamblaje y test
   distribuciones.py               Fase 3 del notebook anterior (se reescribe al migrar la fase 3)
 docs/
   diccionario.md                  Diccionario de todas las columnas (fuentes y tablas derivadas)
@@ -58,8 +58,8 @@ data/
 
 | Archivo | Qué es | Qué hace / cuándo usarlo |
 |---|---|---|
-| `notebooks/Proyecto_Padel.ipynb` | El documento de trabajo del proyecto (D1). | Se ejecuta de principio a fin (entre 7 y 14 min según el equipo; casi todo es la búsqueda de hiperparámetros de la 2.3). Cada sección tiene Objetivo → Decisiones → Código → Resultados, con texto corto como en los notebooks del profesor. Fase 1: 1.1 entendimiento, 1.2 faltantes, atípicos y tratamiento, 1.3 variables preliminares, 1.4 correlación y 1.5 base unificada. Fase 2: 2.1 partición y evaluación, 2.2 naive y logística por pasos, 2.3 otros modelos del curso y 2.4 ensamblaje y test. |
-| `notebooks/Proyecto_Parejas_Padel.ipynb` | El notebook anterior. | Solo consulta: de aquí se migran las fases 2 y 3. Su fase 1 y sus tablas ya no corresponden a `src/` y no se ejecuta. |
+| `notebooks/Proyecto_Padel.ipynb` | El documento de trabajo del proyecto (D1). | Se ejecuta de principio a fin (unos 30 min; casi todo es la búsqueda bayesiana de la 2.3). Cada sección tiene Objetivo → Decisiones → Código → Resultados, con texto corto como en los notebooks del profesor. Fase 1: 1.1 entendimiento, 1.2 faltantes, atípicos y tratamiento, 1.3 variables preliminares, 1.4 correlación y 1.5 base unificada. Fase 2: 2.1 partición y evaluación, 2.2 naive y logística por pasos, 2.3 otros modelos del curso y 2.4 ensamblaje y test. |
+| `notebooks/Proyecto_Parejas_Padel.ipynb` | El notebook anterior. | Solo consulta: de aquí se migra la fase 3. Su fase 1 y sus tablas ya no corresponden a `src/` y no se ejecuta. |
 | `notebooks/referencias/` | Notebooks de clase del profesor. | Solo consulta: la fase 2 replica su estructura y su código. No se ejecutan ni forman parte del pipeline. |
 | `CLAUDE.md` | Instrucciones para el asistente de IA. | Cómo debe trabajar (preguntar antes de decidir, verificar, mantener el repositorio simple) y los hitos del proyecto. No tiene decisiones concretas: remite a este README. |
 | `src/datos.py` | La base del pipeline. | Rutas de `data/`, semilla (2026), medidas de la cancha, lectura de las fuentes (`leer_video`, `leer_traza`, `leer_formulario`, `iterar_video`, `tipos_video`), conversión del CSV de video a Parquet (`convertir_video_a_parquet`) y utilidades de reporte y escritura (`resumen_tabla`, `comparar`, `perfil_columnas`, `guardar_tabla`). |
@@ -85,7 +85,7 @@ data/
 | `identidades_video.csv` | track de video (1.201) | A qué jugador corresponde cada track, cómo se asignó y si se conserva |
 | `puntos.csv` | punto (287) | Ganador, jugadores, estado del video y banderas de calidad |
 | `video_limpio.parquet` | frame × jugador (705.888) | Video limpio: posición suavizada, distancia a la red, velocidad y aceleración (1.2) |
-| `processed/tabla_modelo.csv` | equipo × punto (448) | Tabla para el modelo (1.5): 224 puntos, `gano` y el promedio de las 12 variables del equipo (`propio_`) y del rival (`rival_`) |
+| `processed/tabla_modelo.csv` | equipo × punto (448) | Tabla para el modelo (1.5): 224 puntos, `gano` y el promedio de las 12 variables (16 columnas con el one-hot) del equipo (`propio_`) y del rival (`rival_`) |
 
 El detalle de cada columna está en la parte B de [docs/diccionario.md](docs/diccionario.md).
 
@@ -178,14 +178,14 @@ Granularidad: **frame × jugador → jugador × punto → equipo × punto**.
 ### Modelado (fase 2)
 
 - **Objetivo:** `gano` del equipo de cada fila (D7, D27). La probabilidad de ganar el partido a 7 puntos se deriva de p(ganar el punto) en la fase 4.
-- **Estructura (D28):** 2.1 partición y validación; 2.2 naive y logística por pasos; 2.3 LASSO/Ridge, árbol, Random Forest, SVM, bagging y boosting; 2.4 ensamblaje y comparación final en test.
+- **Estructura (D28):** 2.1 partición y validación; 2.2 naive y logística por pasos; 2.3 LASSO/Ridge, árbol, Random Forest, SVM, bagging, boosting y red neuronal; 2.4 ensamblaje y comparación final en test.
 - **Partición (D29):** test = partidos 7, 14, 24, 29 y 39 (53 puntos), usado una sola vez al final; train = los otros 19 (171 puntos). Nunca se mezclan puntos de un mismo partido.
 - **Evaluación (D30):** validación dejando un partido fuera en el train; predicciones simetrizadas; AUC (principal), accuracy y F1, con intervalos del 95 % por bootstrap de partidos.
 - **Referencia mínima:** el naive. Con las filas espejo predice 0,5, así que su AUC es 0,5 y su accuracy 50 %.
 - **Selección (D31, D32):** pasos desde las 4 variables del modelo 1; un grupo o variable entra solo si el intervalo del 95 % de la mejora de AUC queda por encima de 0. La logística y cada modelo de la 2.3 lo hacen por su cuenta.
 - **Hiperparámetros (D33):** búsqueda bayesiana (`BayesSearchCV`) como el profesor, 40 evaluaciones por modelo, con un partido fuera por pliegue y AUC; se buscan con las 4 variables del modelo 1.
 - **Ensamblaje (D36):** entran los 4 mejores modelos de la 2.3 por AUC de validación.
-- **Voto ponderado (D37):** α = accuracy / suma de las accuracy (como el notebook 06), sobre las probabilidades.
+- **Voto ponderado (D37):** α = accuracy / suma de las accuracy (como el notebook 06, con la validación por partido en vez del out-of-bag), sobre las probabilidades.
 - **Modelo final (D38) y test (D39):** el de mayor AUC de validación pasa a la fase 4; todos los modelos se miden una sola vez en el test, con intervalo bootstrap por partido.
 - Las parejas casi no se repiten (30 jugadores): el modelo aprende de características de la pareja, no de identidades.
 
@@ -222,24 +222,23 @@ Ordenado como el notebook. Solo están las decisiones que aplican al notebook nu
 | D25 | 1.5 | Solo entran los puntos con los 4 jugadores identificados (244). | Equipo (2026-11-07) |
 | D26 | 1.5 | Se eliminan los puntos en que algún jugador no tiene variables de video (9 del partido 17, sin `y`, y 11 con un track de menos de 2 s): quedan 224 puntos de 24 partidos y no se imputa nada de video. | Equipo (2026-11-23) |
 | D27 | 1.5 | Del jugador al equipo: promedio de los dos jugadores (en las 0/1, la proporción del equipo). Dos filas por punto, una por equipo, con las variables propias (`propio_`) y las del rival (`rival_`) sin restarlas; objetivo `gano`. | Equipo (2026-11-23) |
-| D28 | 2 | Fase 2 en 4 secciones con todos los temas del curso: 2.1 partición y validación; 2.2 naive y logística por pasos; 2.3 LASSO/Ridge, árbol, Random Forest, SVM, bagging y boosting; 2.4 ensamblaje y comparación final en test. | Equipo (2026-11-23) |
+| D28 | 2 | Fase 2 en 4 secciones con todos los temas del curso: 2.1 partición y validación; 2.2 naive y logística por pasos; 2.3 LASSO/Ridge, árbol, Random Forest, SVM, bagging, boosting y red neuronal; 2.4 ensamblaje y comparación final en test. | Equipo (2026-11-23) |
 | D29 | 2.1 | Test 80/20 por partido; nunca se mezclan puntos de un mismo partido. Se ordenan los partidos por número (orden del torneo) y se toma 1 de cada 5. De los 5 arranques posibles se queda el que tiene ~20 % de los partidos, entre 18 % y 25 % de los puntos y la misma tasa de victorias del equipo 1 que el train (±5 puntos); si quedan varios, el de proporción de cancha 2 más parecida al total. Resultado: partidos 7, 14, 24, 29 y 39. El test se usa una sola vez, al final. | Equipo (2026-11-23) |
-| D30 | 2.1 | Evaluación común de todos los modelos: validación dejando un partido fuera en el train (19 pliegues, como `cross_val_score` del profesor pero por partido); las predicciones se simetrizan: p(A gana) = promedio de p(A contra B) y 1 − p(B contra A). Métrica principal: AUC (`roc_auc_score`), como en los notebooks del profesor; al lado, accuracy y F1. Intervalos del 95 % con bootstrap por partido de las predicciones de validación (1.000 remuestreos, semilla 2026), los mismos para todos los modelos. El bagging no separa datos: es un modelo y va en la 2.3. | Equipo (2026-11-24) |
-| D31 | 1.3 / 2.2 | Selección por pasos con regresión logística (de `scikit-learn`, estandarizada dentro de cada pliegue): modelo 1 con `nivel_padel`, `atacante`, `vel_media_mps` y `estatura_cm` (orden fijado por lógica de juego antes de correr); luego el resto de nivel de juego y el de atributos físicos (tipo de juego no agrega variables tras D24). Un grupo entra solo si el intervalo del 95 % de la mejora de AUC queda por encima de 0 (parsimonia); si no, sus variables se prueban una por una, en orden, con la misma regla. | Equipo (2026-11-23; regla estricta y AUC 2026-11-24) |
+| D30 | 2.1 | Evaluación común de todos los modelos: validación dejando un partido fuera en el train (19 pliegues, como `cross_val_score` del profesor pero por partido); las predicciones se simetrizan: p(A gana) = promedio de p(A contra B) y 1 − p(B contra A). Métrica principal: AUC (`roc_auc_score`), como en los notebooks del profesor; al lado, accuracy y F1. Intervalos del 95 % con bootstrap por partido de las predicciones de validación (1.000 remuestreos, semilla 2026), los mismos para todos los modelos. | Equipo (2026-11-24) |
+| D31 | 1.4 / 2.2 | Selección por pasos con regresión logística (de `scikit-learn`, estandarizada dentro de cada pliegue): modelo 1 con `nivel_padel`, `atacante`, `vel_media_mps` y `estatura_cm` (orden fijado por lógica de juego antes de correr); luego el resto de nivel de juego y el de atributos físicos (tipo de juego no agrega variables tras D24). Un grupo entra solo si el intervalo del 95 % de la mejora de AUC queda por encima de 0 (parsimonia); si no, sus variables se prueban una por una, en orden, con la misma regla. | Equipo (2026-11-23; regla estricta y AUC 2026-11-24) |
 | D32 | 2.3 | Cada modelo de la 2.3 repite la selección por pasos de D31 con sus propios hiperparámetros: empieza con las 4 variables del modelo 1 y cada uno termina con sus propias variables, escogidas entre las 12. | Equipo (2026-11-24) |
-| D33 | 2.3 | Hiperparámetros con búsqueda bayesiana (`BayesSearchCV` de `scikit-optimize`), como en el notebook 05 del profesor: 40 evaluaciones por modelo y AUC como métrica, con un partido fuera por pliegue; se buscan una vez por modelo con las 4 variables del modelo 1 y se mantienen durante los pasos. Rangos: `C` de 0,0001 a 10; profundidad de 1 a 10; mínimo de 5 a 60 filas por hoja; de 25 a 500 árboles; tasa de aprendizaje de 0,001 a 1; `gamma` de 0,001 a 1; muestras de bagging del 30 % al 100 %; red de 4 a 64 neuronas y `alpha` de 0,001 a 10. Escoger y reportar con los mismos pliegues da un AUC algo optimista; el test de la 2.4 lo corrige. Modelos: LASSO, Ridge, árbol, Random Forest, SVM, bagging, AdaBoost, Gradient Boosting, XGBoost y red neuronal (D35). | Equipo (2026-11-24) |
+| D33 | 2.3 | Hiperparámetros con búsqueda bayesiana (`BayesSearchCV` de `scikit-optimize`), como en el notebook 05 del profesor: 40 evaluaciones por modelo y AUC como métrica, con un partido fuera por pliegue; se buscan una vez por modelo con las 4 variables del modelo 1 y se mantienen durante los pasos. Rangos: `C` de 0,0001 a 10; profundidad de 1 a 10; mínimo de 5 a 60 filas por hoja; de 25 a 500 árboles; tasa de aprendizaje de 0,001 a 1; `gamma` de 0,001 a 1; muestras de bagging del 30 % al 100 %; red de 4 a 64 neuronas y `alpha` de 0,001 a 10. Escoger y reportar con los mismos pliegues da un AUC algo optimista; el test de la 2.4 no tiene ese sesgo. Modelos: LASSO, Ridge, árbol, Random Forest, SVM, bagging, AdaBoost, Gradient Boosting, XGBoost y red neuronal (D35). | Equipo (2026-11-24) |
 | D34 | 2.3 | Las probabilidades del SVM salen de `SVC(probability=True)`, como en el notebook del profesor; para calcularlas, `scikit-learn` hace una validación interna que mezcla puntos de un mismo partido. En scikit-learn 1.9 ese parámetro avisa que se quitará en la 1.11: `requirements.txt` pide `scikit-learn>=1.8,<1.11`. | Equipo (2026-11-24) |
-| D35 | 2.3 | Red neuronal con `MLPClassifier` de `scikit-learn`, con la misma idea del notebook 08 del profesor: una capa densa de 4 a 64 neuronas (la búsqueda bayesiana no acepta listas de capas), activación relu o sigmoide, optimizador adam y lotes de 128. El profesor usa Keras/TensorFlow, pero TensorFlow no tiene versión estable para Python 3.14. Sin parada temprana, porque separaría una validación al azar que mezcla puntos de un mismo partido. | Equipo (2026-11-24) |
+| D35 | 2.3 | Red neuronal con `MLPClassifier` de `scikit-learn`, con la misma idea del notebook 08 del profesor: una capa densa de 4 a 64 neuronas (la búsqueda bayesiana no acepta listas de capas), activación relu o sigmoide, optimizador adam y lotes de 128. El profesor usa Keras/TensorFlow, pero TensorFlow no tiene versión estable para Python 3.14. Sin parada temprana (el profesor tampoco la usa), porque separaría una validación al azar que mezcla puntos de un mismo partido. | Equipo (2026-11-24) |
 | D36 | 2.4 | Al ensamblaje entran los 4 mejores modelos de la 2.3 por AUC de validación. | Equipo (2026-11-24) |
-| D37 | 2.4 | Voto ponderado igual que en la parte 5 del notebook 06 del profesor: cada modelo pesa α = (1 − error) / suma, con su accuracy de validación de la 2.3, y se suman las probabilidades en vez de los votos 0/1: p(ensamblaje) = Σ α × p(modelo). El resultado del ensamblaje en validación es algo optimista, porque los pesos salen de las mismas predicciones. | Equipo (2026-11-24) |
-| D38 | 2.4 | Pasa a la fase 4 el de mayor AUC de validación entre el ensamblaje y los 10 modelos de la 2.3; se escoge antes de mirar el test. | Equipo (2026-11-24) |
+| D37 | 2.4 | Voto ponderado igual que en la parte 5 del notebook 06 del profesor: cada modelo pesa α = (1 − error) / suma, con su accuracy de validación de la 2.3 (el profesor usa el error out-of-bag; aquí, el de la validación por partido; los dos son error en datos que el modelo no vio), y se suman las probabilidades en vez de los votos 0/1: p(ensamblaje) = Σ α × p(modelo). El resultado del ensamblaje en validación es algo optimista, porque los pesos salen de las mismas predicciones. | Equipo (2026-11-24) |
+| D38 | 2.4 | Pasa a la fase 4 el de mayor AUC de validación entre el ensamblaje y los 10 modelos de la 2.3; se escoge antes de mirar el test. Resultado: el ensamblaje de red neuronal, Random Forest, SVM y Bagging. | Equipo (2026-11-24; ensamblaje confirmado por el equipo el mismo día) |
 | D39 | 2.4 | Test: cada modelo se entrena con todo el train (sus hiperparámetros y sus variables) y se mide una sola vez en los 5 partidos de test, con AUC, accuracy y F1 e intervalo del 95 % por bootstrap de partidos (muy ancho con 5 partidos). | Equipo (2026-11-24) |
 
 ## Supuestos y pendientes
 
 | Tema | Detalle | Acción |
 |---|---|---|
-| Modelo de la fase 4 (D38) | Pasa el ensamblaje de red neuronal, Random Forest, SVM y Bagging (AUC 0,640 en validación, el mayor). En test queda en 0,581, y el mayor en test es LASSO (0,596); los intervalos del test se solapan casi por completo. | Revisar con el equipo y el profesor; cambiar de modelo ahora sería escogerlo con el test |
 | Orden del torneo (D29) | Se supone que el número de partido sigue el orden en que se jugaron. | Confirmar con el equipo |
 | Datos faltantes | 15 puntos de la traza sin video. Los 12 partidos programados sin traza ni video aparecen en `Partidos_Jugados` con 0 puntos. | Confirmar si se jugaron; si llegan datos, se vuelve a correr la fase 1 |
 | Apellidos | 5 jugadores con un solo apellido en todas las fuentes (Jeronimo Coy, Jorge García, Juliana Gómez, Marcela Velásquez, Miguel Delgado). | Opcional: buscar en Teams |
