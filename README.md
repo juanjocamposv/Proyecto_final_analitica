@@ -18,7 +18,7 @@ Encontrar las parejas que maximizan la probabilidad de ganar el torneo según su
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1. Manejo de datos | Entendimiento de las tres fuentes; faltantes, atípicos y tratamiento; 14 variables preliminares jugador × punto en 3 grupos; correlación (quedan 12); tabla equipo × punto (1.1–1.5) | Hecha en el notebook nuevo (D1–D24) |
-| 2. Predictiva | Partición y evaluación común; naive y logística por pasos; otros modelos del curso; ensamblaje y test (2.1–2.4) | 2.1–2.3 hechas (D28–D35); 2.4 pendiente |
+| 2. Predictiva | Partición y evaluación común; naive y logística por pasos; otros modelos del curso; ensamblaje y test (2.1–2.4) | Hecha (D28–D39). Modelo para la fase 4: red neuronal (D38) |
 | 3. Distribuciones | Distribución empírica por jugador y por variable aleatoria | Por migrar |
 | 4. Simulación | Combinaciones de parejas evaluadas con el modelo de la fase 2 | Pendiente |
 
@@ -58,7 +58,7 @@ data/
 
 | Archivo | Qué es | Qué hace / cuándo usarlo |
 |---|---|---|
-| `notebooks/Proyecto_Padel.ipynb` | El documento de trabajo del proyecto (D1). | Se ejecuta de principio a fin (entre 7 y 14 min según el equipo; casi todo es la búsqueda de hiperparámetros de la 2.3). Cada sección tiene Objetivo → Decisiones → Código → Resultados, con texto corto como en los notebooks del profesor. Fase 1: 1.1 entendimiento, 1.2 faltantes, atípicos y tratamiento, 1.3 variables preliminares, 1.4 correlación y 1.5 base unificada. Fase 2: 2.1 partición y evaluación, 2.2 naive y logística por pasos, 2.3 otros modelos del curso. |
+| `notebooks/Proyecto_Padel.ipynb` | El documento de trabajo del proyecto (D1). | Se ejecuta de principio a fin (entre 7 y 14 min según el equipo; casi todo es la búsqueda de hiperparámetros de la 2.3). Cada sección tiene Objetivo → Decisiones → Código → Resultados, con texto corto como en los notebooks del profesor. Fase 1: 1.1 entendimiento, 1.2 faltantes, atípicos y tratamiento, 1.3 variables preliminares, 1.4 correlación y 1.5 base unificada. Fase 2: 2.1 partición y evaluación, 2.2 naive y logística por pasos, 2.3 otros modelos del curso y 2.4 ensamblaje y test. |
 | `notebooks/Proyecto_Parejas_Padel.ipynb` | El notebook anterior. | Solo consulta: de aquí se migran las fases 2 y 3. Su fase 1 y sus tablas ya no corresponden a `src/` y no se ejecuta. |
 | `notebooks/referencias/` | Notebooks de clase del profesor. | Solo consulta: la fase 2 replica su estructura y su código. No se ejecutan ni forman parte del pipeline. |
 | `CLAUDE.md` | Instrucciones para el asistente de IA. | Cómo debe trabajar (preguntar antes de decidir, verificar, mantener el repositorio simple) y los hitos del proyecto. No tiene decisiones concretas: remite a este README. |
@@ -185,6 +185,8 @@ Granularidad: **frame × jugador → jugador × punto → equipo × punto**.
 - **Selección (D31, D32):** pasos desde las 4 variables del modelo 1; un grupo o variable entra solo si el intervalo del 95 % de la mejora de R² queda por encima de 0. La logística y cada modelo de la 2.3 lo hacen por su cuenta.
 - **Hiperparámetros (D33):** `GridSearchCV` como el profesor, con un partido fuera por pliegue y R²; grillas de 8 a 27 combinaciones, buscadas con las 4 variables del modelo 1.
 - **Ensamblaje (D36):** entran los 4 mejores modelos de la 2.3 por R² de validación.
+- **Voto ponderado (D37):** α = R² / suma de los R², sobre las probabilidades.
+- **Modelo final (D38) y test (D39):** el de mayor R² de validación pasa a la fase 4; todos los modelos se miden una sola vez en el test, con intervalo bootstrap por partido.
 - Las parejas casi no se repiten (30 jugadores): el modelo aprende de características de la pareja, no de identidades.
 
 ## Registro de decisiones
@@ -229,12 +231,16 @@ Ordenado como el notebook. Solo están las decisiones que aplican al notebook nu
 | D34 | 2.3 | Las probabilidades del SVM salen de `SVC(probability=True)`, como en el notebook del profesor; para calcularlas, `scikit-learn` hace una validación interna que mezcla puntos de un mismo partido. En scikit-learn 1.9 ese parámetro avisa que se quitará en la 1.11: `requirements.txt` pide `scikit-learn>=1.8,<1.11`. | Equipo (2026-11-24) |
 | D35 | 2.3 | Red neuronal con `MLPClassifier` de `scikit-learn`, con la misma idea del notebook 08 del profesor (capas densas, activación relu o sigmoide, optimizador adam, lotes de 128); grilla de tamaño de capas, activación y `alpha`. El profesor usa Keras/TensorFlow, pero TensorFlow no tiene versión estable para Python 3.14. Sin parada temprana, porque separaría una validación al azar que mezcla puntos de un mismo partido. | Equipo (2026-11-24) |
 | D36 | 2.4 | Al ensamblaje entran los 4 mejores modelos de la 2.3 por R² de validación (con 4 no hay que desempatar a mano entre el 3.º y el 4.º). | Equipo (2026-11-24) |
+| D37 | 2.4 | Voto ponderado como en la parte 5 del notebook 06 del profesor: cada modelo pesa α = R² / (suma de los R²), con el R² de validación de la 2.3, y se suman las probabilidades en vez de los votos 0/1: p(ensamblaje) = Σ α × p(modelo). El R² del ensamblaje en validación es algo optimista, porque los pesos salen de las mismas predicciones. | Equipo (2026-11-24) |
+| D38 | 2.4 | Pasa a la fase 4 el de mayor R² de validación entre el ensamblaje y los 10 modelos de la 2.3; se escoge antes de mirar el test. | Equipo (2026-11-24) |
+| D39 | 2.4 | Test: cada modelo se entrena con todo el train (sus hiperparámetros y sus variables) y se mide una sola vez en los 5 partidos de test, con R², AUC y accuracy e intervalo del 95 % por bootstrap de partidos (muy ancho con 5 partidos). | Equipo (2026-11-24) |
 
 ## Supuestos y pendientes
 
 | Tema | Detalle | Acción |
 |---|---|---|
 | Grillas en el borde (D33) | Tras ampliar las grillas, siguen en un borde Random Forest (profundidad 5), Bagging (mínimo 40 por hoja), Gradient Boosting (tasa 0,005 y 400 árboles) y la red neuronal (8 neuronas y `alpha` 0,01). | Opcional: ampliar de nuevo; las diferencias de R² entre modelos ya son pequeñas |
+| Modelo de la fase 4 (D38) | Por la regla, pasa la red neuronal (R² 0,053 en validación). En test quedó con 0,011, el menor de los 10; el mayor en test fue XGBoost (0,043), último en validación. Los intervalos del test se solapan casi por completo. | Cambiar de modelo ahora sería escogerlo con el test; si el equipo lo quiere revisar, hacerlo sabiendo eso |
 | Orden del torneo (D29) | Se supone que el número de partido sigue el orden en que se jugaron. | Confirmar con el equipo |
 | Datos faltantes | 15 puntos de la traza sin video. Los 12 partidos programados sin traza ni video aparecen en `Partidos_Jugados` con 0 puntos. | Confirmar si se jugaron; si llegan datos, se vuelve a correr la fase 1 |
 | Apellidos | 5 jugadores con un solo apellido en todas las fuentes (Jeronimo Coy, Jorge García, Juliana Gómez, Marcela Velásquez, Miguel Delgado). | Opcional: buscar en Teams |

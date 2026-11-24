@@ -1,4 +1,4 @@
-"""Fase 2: partición por partido y evaluación común (2.1), selección por pasos (2.2) y búsqueda de hiperparámetros (2.3)."""
+"""Fase 2: partición y evaluación común (2.1), selección por pasos (2.2), hiperparámetros (2.3) y ensamblaje y test (2.4)."""
 
 import numpy as np
 import pandas as pd
@@ -182,3 +182,22 @@ def ajustar(modelo, grilla, tabla, base, grupos, muestras):
     params = {k.removeprefix('modelo__'): v for k, v in busqueda.best_params_.items()}
     return {'modelo': mejor, 'hiperparametros': params, 'combinaciones': len(busqueda.cv_results_['params']),
             'variables': variables, 'pasos': pasos, 'prediccion': final}
+
+
+# ── 2.4 Ensamblaje y test (D37–D39) ─────────────────────────────────────────────
+def pesos_r2(tabla, predicciones, nombres):
+    """Pesos del voto ponderado del notebook 06 del profesor, con el R² de validación: α = R² / suma de los R² (D37)."""
+    r2 = pd.Series({n: r2_score(tabla['gano'], predicciones[n]) for n in nombres})
+    if (r2 <= 0).any():
+        raise ValueError('Hay modelos con R² ≤ 0: los pesos no tendrían sentido; decidir con el equipo.')
+    return r2 / r2.sum()
+
+
+def ensamblar(predicciones, pesos):
+    """Voto ponderado con probabilidades: p(ensamblaje) = Σ α × p(modelo) (D37)."""
+    return sum(pesos[n] * predicciones[n] for n in pesos.index)
+
+
+def predecir_test(modelo, train, test, cols):
+    """Entrena con todo el train y da la probabilidad simétrica de cada fila del test (D39)."""
+    return Simetrico(modelo).fit(train[cols], train['gano']).predict_proba(test[cols])[:, 1]
