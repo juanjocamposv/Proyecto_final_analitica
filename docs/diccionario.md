@@ -177,7 +177,7 @@ Las 14 variables preliminares del jugador (1.3, D21). Las de video quedan vacía
 
 | Columna | Grupo | Unidad / escala | Descripción |
 |---|---|---|---|
-| `nivel_padel` | nivel de juego | 0–2 | 0 = primera vez, 1 = principiante, 2 = intermedio o avanzado |
+| `nivel_padel_1`, `nivel_padel_2` | nivel de juego | 0/1 | One-hot del nivel (D21): 1 = principiante; 2 = intermedio o avanzado. Base (las dos en 0): primera vez |
 | `tiempo_jugando_padel` | nivel de juego | 0/1 | 0 = menos de 6 meses, 1 = 6 meses o más |
 | `experiencia_padel` | nivel de juego | 0/1 | 1 si ya había jugado pádel |
 | `practica_otra_raqueta` | nivel de juego | 0/1 | 1 si practica otro deporte de raqueta |
@@ -188,8 +188,8 @@ Las 14 variables preliminares del jugador (1.3, D21). Las de video quedan vacía
 | `estatura_cm` | atributos físicos | cm | Estatura |
 | `imc` | atributos físicos | kg/m² | Índice de masa corporal |
 | `edad` | atributos físicos | años | Edad |
-| `estado_fisico` | atributos físicos | 0–2 | 0 = malo o regular, 1 = bueno, 2 = excelente |
-| `frecuencia_deporte` | atributos físicos | 0–3 | Veces por semana que hace deporte (D12) |
+| `estado_fisico_1`, `estado_fisico_2` | atributos físicos | 0/1 | One-hot del estado físico (D21): 1 = bueno; 2 = excelente. Base: malo o regular |
+| `frecuencia_deporte_1` a `_3` | atributos físicos | 0/1 | One-hot de las veces por semana que hace deporte (D12, D21): 1 = 1–2; 2 = 3–4; 3 = más de 4. Base: 0 veces |
 | `mujer` | atributos físicos | 0/1 | 1 si es mujer |
 
 ### `identidades_video.csv`
@@ -246,7 +246,7 @@ Una fila = un jugador conservado en un frame (sección 1.2). Solo posición y ve
 
 ### `processed/tabla_modelo.csv`
 
-Tabla para la fase 2 (1.5, D27): dos filas por punto, una por equipo. Tiene 224 puntos de 24 partidos: los que tienen a los 4 jugadores identificados (D25) y con todas sus variables (D26). No tiene vacíos.
+Tabla para la fase 2 (1.5, D27): dos filas por punto, una por equipo. Tiene 224 puntos de 24 partidos (448 filas y 36 columnas): los que tienen a los 4 jugadores identificados (D25) y con todas sus variables (D26). No tiene vacíos.
 
 | Columna | Descripción |
 |---|---|
@@ -256,4 +256,4 @@ Tabla para la fase 2 (1.5, D27): dos filas por punto, una por equipo. Tiene 224 
 | `propio_<variable>` | Promedio de la variable en los dos jugadores del equipo de la fila |
 | `rival_<variable>` | Lo mismo para el equipo rival |
 
-`<variable>` es cualquiera de las 12 que quedan tras la 1.4 (las 14 de `participaciones` menos `dist_red_m` y `pct_quieto`). En las 0/1 el promedio es la proporción del equipo: `propio_atacante` = 0,5 quiere decir que uno de los dos es atacante.
+`<variable>` es cualquiera de las 12 que quedan tras la 1.4 (las 14 de `participaciones` menos `dist_red_m` y `pct_quieto`); con el one-hot son 16 columnas por equipo (D21). En las 0/1 el promedio es la proporción del equipo: `propio_atacante` = 0,5 quiere decir que uno de los dos es atacante.

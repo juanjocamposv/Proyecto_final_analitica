@@ -19,6 +19,8 @@ VARIABLES_JUGADOR = [v for grupo in GRUPOS.values() for v in grupo]
 VARIABLES_VIDEO = GRUPOS['tipo de juego']
 VARIABLES_FORMULARIO = [v for v in VARIABLES_JUGADOR if v not in VARIABLES_VIDEO]
 MODELO_1 = ['nivel_padel', 'atacante', 'vel_media_mps', 'estatura_cm']     # las 4 del primer modelo (D31)
+# One-hot por recomendación del profesor (D21): categorías que quedan como columna; la primera (0) es la base
+ONE_HOT = {'nivel_padel': [1, 2], 'estado_fisico': [1, 2], 'frecuencia_deporte': [1, 2, 3]}
 
 
 def variables_video(limpio, por_fondo=True):
@@ -48,12 +50,18 @@ def variables_video(limpio, por_fondo=True):
 
 
 def variables_formulario(jugadores):
-    """Las 10 variables fijas del jugador en escala numérica; se unen las categorías de una sola persona (D21)."""
+    """Las 10 variables fijas del jugador; se unen las categorías de una sola persona y las de más de dos
+    categorías pasan a one-hot con `pd.get_dummies(drop_first=True)` (D21)."""
     j = jugadores[['codigo', *VARIABLES_FORMULARIO]].copy()
     j['nivel_padel'] = j['nivel_padel'].clip(upper=2)                        # avanzado (1 jugador) se une a intermedio
     j['tiempo_jugando_padel'] = (j['tiempo_jugando_padel'] >= 1).astype(int)  # 0 = menos de 6 meses, 1 = 6 meses o más
     j['estado_fisico'] = (j['estado_fisico'] - 1).clip(lower=0)              # malo (1 jugador) se une a regular
-    return j.astype({v: float for v in VARIABLES_FORMULARIO})
+    j = j.astype({v: int for v in ONE_HOT})
+    j = pd.get_dummies(j, columns=list(ONE_HOT), drop_first=True, dtype=float)
+    faltan = set(columnas_jugador(VARIABLES_FORMULARIO)) - set(j.columns)
+    if faltan:
+        raise ValueError(f'Faltan categorías en el one-hot: {faltan}')
+    return j[['codigo', *columnas_jugador(VARIABLES_FORMULARIO)]].astype({c: float for c in columnas_jugador(VARIABLES_FORMULARIO)})
 
 
 def efecto_fondo(jugador_punto, variables):
@@ -68,8 +76,9 @@ def efecto_fondo(jugador_punto, variables):
 
 
 def pares_correlacionados(corr, umbral=UMBRAL_CORRELACION):
-    """Pares de variables con |r| ≥ umbral, de mayor a menor."""
+    """Pares de columnas con |r| ≥ umbral, de mayor a menor; las categorías de una misma variable no se comparan."""
     arriba = corr.where(np.triu(np.ones(corr.shape, dtype=bool), k=1)).stack()
+    arriba = arriba[[variable_de(a) != variable_de(b) for a, b in arriba.index]]
     return arriba[arriba.abs() >= umbral].sort_values(key=abs, ascending=False).rename('r de Spearman').to_frame()
 
 
@@ -77,10 +86,11 @@ def quitar_repetidas(pares):
     """De cada par repetido sale la variable que no está en el modelo 1 (D24)."""
     salen = []
     for a, b in pares.index:
+        a, b = variable_de(a), variable_de(b)
         if (a in MODELO_1) == (b in MODELO_1):
             raise ValueError(f'{a} y {b}: ninguna o las dos están en el modelo 1; decidir con el equipo.')
         salen.append(b if a in MODELO_1 else a)
-    return salen
+    return list(dict.fromkeys(salen))
 
 
 def tabla_equipos(jugador_punto, puntos, variables):
@@ -90,15 +100,29 @@ def tabla_equipos(jugador_punto, puntos, variables):
     """
     completos = puntos.loc[puntos['equipos_completos'], ['partido', 'punto']]
     jp = jugador_punto.merge(completos, on=['partido', 'punto'])
-    jp = jp.groupby(['partido', 'punto']).filter(lambda g: g[variables].notna().all().all())
+    cols = columnas_jugador(variables)
+    jp = jp.groupby(['partido', 'punto']).filter(lambda g: g[cols].notna().all().all())
     llave = ['partido', 'punto', 'equipo']
-    equipo = jp.groupby(llave)[variables].mean()
+    equipo = jp.groupby(llave)[cols].mean()
     gano = jp.groupby(llave)['gano_punto'].first().rename('gano')
     rival = equipo.rename(index={1: 2, 2: 1}, level='equipo')    # a cada equipo le corresponde el otro
     tabla = pd.concat([gano, equipo.add_prefix('propio_'), rival.add_prefix('rival_')], axis=1)
     return tabla.reset_index().sort_values(llave).reset_index(drop=True)
 
 
+def columnas_jugador(variables):
+    """Columnas de cada variable del jugador: las de one-hot se abren en una columna por categoría (D21)."""
+    cols = []
+    for v in variables:
+        cols += [f'{v}_{k}' for k in ONE_HOT[v]] if v in ONE_HOT else [v]
+    return cols
+
+
+def variable_de(columna):
+    """Variable del jugador a la que pertenece una columna (una categoría del one-hot vuelve a su variable)."""
+    return next((v for v in ONE_HOT if columna.startswith(v + '_')), columna)
+
+
 def columnas(variables):
-    """Las columnas del modelo para una lista de variables del jugador: la del equipo y la del rival."""
-    return [f'{lado}_{v}' for v in variables for lado in ('propio', 'rival')]
+    """Las columnas del modelo para una lista de variables del jugador: las del equipo y las del rival."""
+    return [f'{lado}_{c}' for c in columnas_jugador(variables) for lado in ('propio', 'rival')]
