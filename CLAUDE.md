@@ -15,7 +15,7 @@ Este archivo solo tiene reglas de trabajo e hitos. Todo lo concreto está en otr
 | Supuestos sin confirmar y pendientes | [README.md § Supuestos y pendientes](README.md#supuestos-y-pendientes) |
 | Significado, unidad y uso de cada columna | [docs/diccionario.md](docs/diccionario.md) (A: fuentes crudas; B: tablas derivadas) |
 | Qué hace cada archivo | [README.md § Archivos del repositorio](README.md#archivos-del-repositorio) |
-| Código y resultados | [notebooks/Proyecto_Padel.ipynb](notebooks/Proyecto_Padel.ipynb) y `src/` (el notebook anterior, `Proyecto_Parejas_Padel.ipynb`, ya no se usa: solo queda como consulta) |
+| Código y resultados | [notebooks/Proyecto_Padel.ipynb](notebooks/Proyecto_Padel.ipynb) y `src/` |
 
 ## Hitos
 

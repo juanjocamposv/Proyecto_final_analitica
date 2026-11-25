@@ -2,7 +2,7 @@
 
 Encontrar las parejas que maximizan la probabilidad de ganar el torneo según su estilo de juego. Se parte de tres fuentes: datos de video (pose y posición por frame), la traza de partidos y el formulario de jugadores.
 
-**¿Por dónde empezar?** El trabajo (código, resultados y reporte, por fases) está en [notebooks/Proyecto_Padel.ipynb](notebooks/Proyecto_Padel.ipynb). El notebook anterior, `Proyecto_Parejas_Padel.ipynb`, queda solo como consulta: ya se migró de él lo que servía (D1). Este README explica los archivos del repositorio y concentra las reglas de datos, el [registro de decisiones](#registro-de-decisiones) y los [pendientes](#supuestos-y-pendientes).
+**¿Por dónde empezar?** El trabajo (código, resultados y reporte, por fases) está en [notebooks/Proyecto_Padel.ipynb](notebooks/Proyecto_Padel.ipynb). Este README explica los archivos del repositorio y concentra las reglas de datos, el [registro de decisiones](#registro-de-decisiones) y los [pendientes](#supuestos-y-pendientes).
 
 ## Contenido
 
@@ -31,8 +31,6 @@ requirements.txt                  Librerías de Python necesarias
 .gitignore                        Lo que no se sube a git
 notebooks/
   Proyecto_Padel.ipynb            Notebook de trabajo: todas las fases y el reporte (D1)
-  Proyecto_Parejas_Padel.ipynb    Notebook anterior: solo consulta (ya no se migra nada)
-  referencias/                    Notebooks del profesor que se replican en la fase 2 (solo consulta)
 src/                              Funciones del pipeline que usa el notebook
   __init__.py                     Marca src/ como paquete y lista sus módulos
   datos.py                        Rutas, constantes de cancha, lectura de fuentes, utilidades
@@ -60,8 +58,6 @@ data/
 | Archivo | Qué es | Qué hace / cuándo usarlo |
 |---|---|---|
 | `notebooks/Proyecto_Padel.ipynb` | El documento de trabajo del proyecto (D1). | Se ejecuta de principio a fin (unos 37 min: casi todo es la búsqueda bayesiana de la 2.3 y unos 7 min la fase 4). Cada sección tiene Objetivo → Decisiones → Código → Resultados, con texto corto como en los notebooks del profesor. Fase 1: 1.1 entendimiento, 1.2 faltantes, atípicos y tratamiento, 1.3 variables preliminares, 1.4 correlación y 1.5 base unificada. Fase 2: 2.1 partición y evaluación, 2.2 naive y logística por pasos, 2.3 otros modelos del curso y 2.4 ensamblaje y test. Fase 3: 3.1 exploración, 3.2 ajuste con todos los jugadores y 3.3 ajuste por jugador y tabla para la fase 4. Fase 4: 4.1 del punto al partido, 4.2 revisión con los partidos reales, 4.3 ranking, 4.4 incertidumbre y 4.5 parejas ideales según su estilo (unos 7 min; para correrla sola se necesitan las tablas de `data/` y `data/processed/ensamblaje.joblib`). |
-| `notebooks/Proyecto_Parejas_Padel.ipynb` | El notebook anterior. | Solo consulta: ya se migró lo que servía. Sus fases y sus tablas ya no corresponden a `src/` y no se ejecuta. |
-| `notebooks/referencias/` | Notebooks de clase del profesor. | Solo consulta: la fase 2 replica su estructura y su código. No se ejecutan ni forman parte del pipeline. |
 | `CLAUDE.md` | Instrucciones para el asistente de IA. | Cómo debe trabajar (preguntar antes de decidir, verificar, mantener el repositorio simple) y los hitos del proyecto. No tiene decisiones concretas: remite a este README. |
 | `src/datos.py` | La base del pipeline. | Rutas de `data/`, semilla (2026), medidas de la cancha, lectura de las fuentes (`leer_video`, `leer_traza`, `leer_formulario`, `iterar_video`, `tipos_video`), conversión del CSV de video a Parquet (`convertir_video_a_parquet`) y utilidades de reporte y escritura (`resumen_tabla`, `comparar`, `perfil_columnas`, `guardar_tabla`). |
 | `src/identidades.py` | La tabla de equivalencias de jugadores. | Lleva cualquier nombre de cualquier fuente a su nombre canónico y a su código de 6 dígitos. Aquí se agregan alias nuevos, jugadores sin formulario y correcciones de código. |
