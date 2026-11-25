@@ -3,7 +3,7 @@
 Describe cada columna que usa el proyecto: las tres fuentes crudas que llegan a `data/raw/` (parte A) y las tablas derivadas que genera el notebook [Proyecto_Padel.ipynb](../notebooks/Proyecto_Padel.ipynb) en `data/interim/` (parte B). Las reglas de datos y las decisiones `D#` están en el [README](../README.md#reglas-de-datos). La información del CSV de video sale de la documentación y el código del pipeline de visión del profesor (repositorio `padel-vision-analytics-light`), que no se incluye aquí.
 
 - **Parte A — Fuentes crudas:** [A1. Video](#a1-csv-de-video-base_videos_final_202602csv) · [A2. Traza](#a2-traza-de-partidos-traza_partidos_202602xlsx) · [A3. Formulario](#a3-formulario-de-jugadores-datos_jugadores_padel_202602xlsx)
-- **Parte B — Tablas derivadas:** `equivalencias_nombres`, `jugadores`, `participaciones`, `identidades_video`, `puntos`, `video_limpio` y `processed/tabla_modelo`.
+- **Parte B — Tablas derivadas:** `equivalencias_nombres`, `jugadores`, `participaciones`, `identidades_video`, `puntos`, `video_limpio`, `distribuciones_jugador` y `processed/tabla_modelo`.
 
 ---
 
@@ -119,6 +119,7 @@ CSV UTF-8 con BOM, salvo `video_limpio`, que es Parquet por su tamaño. Ninguna 
 | `identidades_video.csv` | track de video `(partido, punto, player_id)` | 1.201 | 1.2 |
 | `puntos.csv` | punto (unión externa traza–video) | 287 | 1.2 |
 | `video_limpio.parquet` | frame × jugador (tracks conservados) | 705.888 | 1.2 |
+| `distribuciones_jugador.csv` | jugador (distribuciones para la fase 4) | 30 | 3.3 |
 | `processed/tabla_modelo.csv` | equipo × punto (tabla para el modelo) | 448 | 1.5 |
 
 ### `equivalencias_nombres.csv`
@@ -243,6 +244,23 @@ Una fila = un jugador conservado en un frame (sección 1.2). Solo posición y ve
 | `velocidad_mps`, `aceleracion_mps2` | m/s, m/s² | Calculadas sobre la posición suavizada, con límites de 8 m/s y 10 m/s² (D20) |
 | `posicion_corregida` | bool | El frame estaba fuera de la cancha o era un salto del tracking |
 | `cinematica_corregida` | bool | La velocidad o la aceleración del frame superaban el límite |
+
+### `distribuciones_jugador.csv`
+
+Una fila por jugador con lo que la fase 4 necesita para sortear sus dos variables (3.3, D42–D44).
+
+| Columna | Unidad | Descripción |
+|---|---|---|
+| `codigo`, `nombre` | — | Código de 6 dígitos y nombre canónico del jugador |
+| `puntos` | conteo | Filas jugador × punto con variables de video (D41) |
+| `origen` | texto | `jugador` (sus propios parámetros) o `global` (menos de 10 puntos, D42) |
+| `p_atacante` | proporción | p de la Bernoulli de `atacante` |
+| `metodo_vel` | texto | `parametrica` (su gamma), `bootstrap` (KS rechazó su gamma: se sortea de sus puntos) o `global` |
+| `familia_vel`, `scipy_vel` | texto | Familia de `vel_media_mps` y su nombre en `scipy.stats` (vacío si es bootstrap) |
+| `parametros_vel` | JSON | Parámetros de `scipy.stats` en orden (forma, desplazamiento, escala); `dis.distribucion_vel(fila)` reconstruye la distribución |
+| `p_KS_vel` | p-valor | KS de su distribución contra sus datos (vacío si usa la global) |
+| `p90_obs`, `p90_IC95`, `p90_dist` | m/s | Percentil 90 de sus datos, su intervalo del 95 % por bootstrap de sus puntos y el percentil 90 de su distribución |
+| `p90_en_IC` | 0/1 | 1 si el percentil 90 de su distribución cae en ese intervalo |
 
 ### `processed/tabla_modelo.csv`
 

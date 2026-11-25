@@ -2,7 +2,7 @@
 
 Encontrar las parejas que maximizan la probabilidad de ganar el torneo según su estilo de juego. Se parte de tres fuentes: datos de video (pose y posición por frame), la traza de partidos y el formulario de jugadores.
 
-**¿Por dónde empezar?** El trabajo (código, resultados y reporte, por fases) está en [notebooks/Proyecto_Padel.ipynb](notebooks/Proyecto_Padel.ipynb). El notebook anterior, `Proyecto_Parejas_Padel.ipynb`, queda solo como consulta mientras se migra la fase 3 (D1). Este README explica los archivos del repositorio y concentra las reglas de datos, el [registro de decisiones](#registro-de-decisiones) y los [pendientes](#supuestos-y-pendientes).
+**¿Por dónde empezar?** El trabajo (código, resultados y reporte, por fases) está en [notebooks/Proyecto_Padel.ipynb](notebooks/Proyecto_Padel.ipynb). El notebook anterior, `Proyecto_Parejas_Padel.ipynb`, queda solo como consulta: ya se migró de él lo que servía (D1). Este README explica los archivos del repositorio y concentra las reglas de datos, el [registro de decisiones](#registro-de-decisiones) y los [pendientes](#supuestos-y-pendientes).
 
 ## Contenido
 
@@ -19,8 +19,8 @@ Encontrar las parejas que maximizan la probabilidad de ganar el torneo según su
 |---|---|---|
 | 1. Manejo de datos | Entendimiento de las tres fuentes; faltantes, atípicos y tratamiento; 14 variables preliminares jugador × punto en 3 grupos; correlación (quedan 12); tabla equipo × punto (1.1–1.5) | Hecha en el notebook nuevo (D1–D27) |
 | 2. Predictiva | Partición y evaluación común; naive y logística por pasos; otros modelos del curso; ensamblaje y test (2.1–2.4) | Hecha (D28–D39); rehecha con AUC y búsqueda bayesiana el 2026-11-24 |
-| 3. Distribuciones | Distribución empírica por jugador y por variable aleatoria | Por migrar |
-| 4. Simulación | Combinaciones de parejas evaluadas con el modelo de la fase 2 | Pendiente |
+| 3. Distribuciones | Exploración; ajuste con todos los jugadores (10 candidatas, KS y AIC) y por jugador de `atacante` y `vel_media_mps` (3.1–3.3) | Hecha (D40–D44) |
+| 4. Simulación | Combinaciones de parejas evaluadas con el ensamblaje de la fase 2 (D38), sorteando con las distribuciones de la fase 3 | Pendiente |
 
 ## Archivos del repositorio
 
@@ -31,7 +31,7 @@ requirements.txt                  Librerías de Python necesarias
 .gitignore                        Lo que no se sube a git
 notebooks/
   Proyecto_Padel.ipynb            Notebook de trabajo: todas las fases y el reporte (D1)
-  Proyecto_Parejas_Padel.ipynb    Notebook anterior: solo consulta hasta migrar la fase 3
+  Proyecto_Parejas_Padel.ipynb    Notebook anterior: solo consulta (ya no se migra nada)
   referencias/                    Notebooks del profesor que se replican en la fase 2 (solo consulta)
 src/                              Funciones del pipeline que usa el notebook
   __init__.py                     Marca src/ como paquete y lista sus módulos
@@ -41,7 +41,7 @@ src/                              Funciones del pipeline que usa el notebook
   video.py                        Identidad, faltantes, pelota y limpieza de posición y velocidad
   variables.py                    Variables jugador × punto, correlación y tabla equipo × punto
   modelo.py                       Fase 2: partición, evaluación, pasos, búsqueda bayesiana, ensamblaje y test
-  distribuciones.py               Fase 3 del notebook anterior (se reescribe al migrar la fase 3)
+  distribuciones.py               Fase 3: exploración, ajuste de distribuciones y tabla por jugador
 docs/
   diccionario.md                  Diccionario de todas las columnas (fuentes y tablas derivadas)
   pose_keypoints_map.jpg          Imagen de los puntos de pose que usa el diccionario
@@ -58,8 +58,8 @@ data/
 
 | Archivo | Qué es | Qué hace / cuándo usarlo |
 |---|---|---|
-| `notebooks/Proyecto_Padel.ipynb` | El documento de trabajo del proyecto (D1). | Se ejecuta de principio a fin (unos 30 min; casi todo es la búsqueda bayesiana de la 2.3). Cada sección tiene Objetivo → Decisiones → Código → Resultados, con texto corto como en los notebooks del profesor. Fase 1: 1.1 entendimiento, 1.2 faltantes, atípicos y tratamiento, 1.3 variables preliminares, 1.4 correlación y 1.5 base unificada. Fase 2: 2.1 partición y evaluación, 2.2 naive y logística por pasos, 2.3 otros modelos del curso y 2.4 ensamblaje y test. |
-| `notebooks/Proyecto_Parejas_Padel.ipynb` | El notebook anterior. | Solo consulta: de aquí se migra la fase 3. Su fase 1 y sus tablas ya no corresponden a `src/` y no se ejecuta. |
+| `notebooks/Proyecto_Padel.ipynb` | El documento de trabajo del proyecto (D1). | Se ejecuta de principio a fin (unos 30 min; casi todo es la búsqueda bayesiana de la 2.3). Cada sección tiene Objetivo → Decisiones → Código → Resultados, con texto corto como en los notebooks del profesor. Fase 1: 1.1 entendimiento, 1.2 faltantes, atípicos y tratamiento, 1.3 variables preliminares, 1.4 correlación y 1.5 base unificada. Fase 2: 2.1 partición y evaluación, 2.2 naive y logística por pasos, 2.3 otros modelos del curso y 2.4 ensamblaje y test. Fase 3: 3.1 exploración, 3.2 ajuste con todos los jugadores y 3.3 ajuste por jugador y tabla para la fase 4. |
+| `notebooks/Proyecto_Parejas_Padel.ipynb` | El notebook anterior. | Solo consulta: ya se migró lo que servía. Sus fases y sus tablas ya no corresponden a `src/` y no se ejecuta. |
 | `notebooks/referencias/` | Notebooks de clase del profesor. | Solo consulta: la fase 2 replica su estructura y su código. No se ejecutan ni forman parte del pipeline. |
 | `CLAUDE.md` | Instrucciones para el asistente de IA. | Cómo debe trabajar (preguntar antes de decidir, verificar, mantener el repositorio simple) y los hitos del proyecto. No tiene decisiones concretas: remite a este README. |
 | `src/datos.py` | La base del pipeline. | Rutas de `data/`, semilla (2026), medidas de la cancha, lectura de las fuentes (`leer_video`, `leer_traza`, `leer_formulario`, `iterar_video`, `tipos_video`), conversión del CSV de video a Parquet (`convertir_video_a_parquet`) y utilidades de reporte y escritura (`resumen_tabla`, `comparar`, `perfil_columnas`, `guardar_tabla`). |
@@ -68,7 +68,7 @@ data/
 | `src/video.py` | El tratamiento del video. | Calidad por punto e identidad de cada track según la traza; % de vacíos por familia de columnas (`faltantes_por_familia`); evidencia de la pelota; limpieza frame × jugador de la posición y la velocidad (recorte a la cancha, saltos del tracking, suavizado y límites físicos). |
 | `src/variables.py` | Las variables del modelo. | Los 3 grupos (`GRUPOS`), las 4 del primer modelo (`MODELO_1`) y las de one-hot (`ONE_HOT`); `variables_video` (respecto de su fondo, D22) y `variables_formulario` (con el one-hot, 1.3, D21); `efecto_fondo` (mismo jugador en TOP y BOTTOM); `pares_correlacionados` y `quitar_repetidas` (1.4, D24); `tabla_equipos` (1.5, D26, D27); `columnas_jugador`, `variable_de` y `columnas` (pasan de variables a columnas y al revés). |
 | `src/modelo.py` | La fase 2. | `opciones_test` y `elegir_test` (test 80/20 por partido, D29); `Simetrico` (cualquier clasificador con p(A) + p(B) = 1) y `predecir` (validación dejando un partido fuera con `cross_val_predict`), `metricas` (AUC, accuracy y F1), `remuestreos`, `resumen` y `diferencia_auc` (intervalos por bootstrap de partidos, D30); `seleccion_por_pasos` (D31) y `coeficientes`; `buscar` (`BayesSearchCV` por partido con AUC) y `ajustar` (D32–D33); `pesos_accuracy`, `ensamblar` y `predecir_test` (D37, D39). |
-| `src/distribuciones.py` | La fase 3 del notebook anterior. | Se reescribe al migrar la fase 3; hoy no lo usa el notebook nuevo. |
+| `src/distribuciones.py` | La fase 3. | `observaciones` (D41), `por_jugador`, `diferencias_entre_jugadores`, `dependencias` y `por_tercio` (3.1); `ajustar`, `comparar_candidatas` y `elegir` (10 candidatas, KS y AIC, D43); `ajustar_por_jugador` (D42, D44) y `distribucion_vel` (reconstruye la distribución de un jugador desde la tabla guardada, para la fase 4). |
 | `src/__init__.py` | Archivo técnico de Python. | Permite hacer `from src import ...` desde el notebook. |
 | `docs/diccionario.md` | El diccionario de datos. | Parte A: cada columna de las fuentes crudas (unidad, cómo se genera y uso). Parte B: cada columna de las tablas que genera el notebook. |
 | `docs/pose_keypoints_map.jpg` | Imagen de referencia. | Puntos del cuerpo que detecta el modelo de pose (hombro, codo, muñeca, raqueta y cabeza). |
@@ -85,6 +85,7 @@ data/
 | `identidades_video.csv` | track de video (1.201) | A qué jugador corresponde cada track, cómo se asignó y si se conserva |
 | `puntos.csv` | punto (287) | Ganador, jugadores, estado del video y banderas de calidad |
 | `video_limpio.parquet` | frame × jugador (705.888) | Video limpio: posición suavizada, distancia a la red, velocidad y aceleración (1.2) |
+| `distribuciones_jugador.csv` | jugador (30) | Distribución de `atacante` y `vel_media_mps` de cada jugador para la fase 4 (3.3) |
 | `processed/tabla_modelo.csv` | equipo × punto (448) | Tabla para el modelo (1.5): 224 puntos, `gano` y el promedio de las 12 variables (16 columnas con el one-hot) del equipo (`propio_`) y del rival (`rival_`) |
 
 El detalle de cada columna está en la parte B de [docs/diccionario.md](docs/diccionario.md).
@@ -189,6 +190,15 @@ Granularidad: **frame × jugador → jugador × punto → equipo × punto**.
 - **Modelo final (D38) y test (D39):** el de mayor AUC de validación pasa a la fase 4; todos los modelos se miden una sola vez en el test, con intervalo bootstrap por partido.
 - Las parejas casi no se repiten (30 jugadores): el modelo aprende de características de la pareja, no de identidades.
 
+### Distribuciones (fase 3)
+
+- **Qué se sortea (D40):** solo `atacante` y `vel_media_mps`, las variables del ensamblaje que cambian de punto a punto. `nivel_padel` y `estatura_cm` son fijas de cada jugador.
+- **Datos (D41):** las 979 filas jugador × punto con variables de video, de 30 jugadores (de 7 a 57 puntos por jugador).
+- **Por jugador (D42):** cada jugador con su distribución; con menos de 10 puntos (Isabella Arenas y Jerónimo Coy, 7 cada uno), la global.
+- **`atacante` (D43, D44):** Bernoulli con p = proporción de puntos como atacante (0,473 con todos; de 0,03 a 1,0 por jugador).
+- **`vel_media_mps` (D43, D44):** 10 candidatas por máxima verosimilitud, con desplazamiento y escala; gana la de menor AIC entre las que KS no rechaza (α = 0,05). Gana la gamma (forma 2,92; desplazamiento −0,572; escala 0,213). Cada jugador: gamma con ese desplazamiento y su forma y escala; si KS la rechaza, bootstrap de sus puntos.
+- **Para la fase 4:** `data/interim/distribuciones_jugador.csv`; `dis.distribucion_vel(fila)` reconstruye la gamma de cada jugador.
+
 ## Registro de decisiones
 
 Ordenado como el notebook. Solo están las decisiones que aplican al notebook nuevo; la numeración se rehízo el 2026-11-23. El notebook anterior usa la numeración vieja, que queda en el historial de git. Toda decisión nueva se agrega aquí.
@@ -234,15 +244,20 @@ Ordenado como el notebook. Solo están las decisiones que aplican al notebook nu
 | D37 | 2.4 | Voto ponderado igual que en la parte 5 del notebook 06 del profesor: cada modelo pesa α = (1 − error) / suma, con su accuracy de validación de la 2.3 (el profesor usa el error out-of-bag; aquí, el de la validación por partido; los dos son error en datos que el modelo no vio), y se suman las probabilidades en vez de los votos 0/1: p(ensamblaje) = Σ α × p(modelo). El resultado del ensamblaje en validación es algo optimista, porque los pesos salen de las mismas predicciones. | Equipo (2026-11-24) |
 | D38 | 2.4 | Pasa a la fase 4 el de mayor AUC de validación entre el ensamblaje y los 10 modelos de la 2.3; se escoge antes de mirar el test. Resultado: el ensamblaje de red neuronal, Random Forest, SVM y Bagging. | Equipo (2026-11-24; ensamblaje confirmado por el equipo el mismo día) |
 | D39 | 2.4 | Test: cada modelo se entrena con todo el train (sus hiperparámetros y sus variables) y se mide una sola vez en los 5 partidos de test, con AUC, accuracy y F1 e intervalo del 95 % por bootstrap de partidos (muy ancho con 5 partidos). | Equipo (2026-11-24) |
+| D40 | 3 | Fase 3 en 3 secciones: 3.1 exploración; 3.2 ajuste con todos los jugadores; 3.3 ajuste por jugador y tabla para la fase 4. Solo se busca la distribución de `atacante` y `vel_media_mps`, las variables del ensamblaje (D38) que cambian de punto a punto; `nivel_padel` y `estatura_cm` son fijas del jugador y no se sortean. | Equipo (2026-11-24) |
+| D41 | 3 | Datos: todas las filas jugador × punto con variables de video (979, de 30 jugadores), no solo las de los puntos del modelo, porque la distribución de un jugador no necesita a los otros 3 del punto. | Equipo (2026-11-24) |
+| D42 | 3 | Cada jugador tiene su propia distribución; con menos de 10 puntos, usa la de todos los jugadores juntos. Motivo: chi² y Kruskal-Wallis rechazan que los jugadores sean iguales (p < 0,001). | Equipo (2026-11-24) |
+| D43 | 3.2 | `atacante`: Bernoulli con p = proporción. `vel_media_mps`: 10 candidatas por máxima verosimilitud (normal, uniforme, triangular, exponencial, gamma, Erlang, chi², lognormal, Weibull y beta), con desplazamiento y escala estimados porque hay valores negativos; gana la de menor AIC entre las que KS no rechaza al 5 %; si todas se rechazan, bootstrap empírico. | Equipo (2026-11-24) |
+| D44 | 3.3 | Por jugador: `atacante` con su proporción; `vel_media_mps` con la familia de la 3.2, el mismo desplazamiento para todos y la forma y la escala del jugador; si KS la rechaza en un jugador, bootstrap de sus puntos. Revisión: el percentil 90 de su distribución contra el intervalo del 95 % del percentil 90 de sus datos (bootstrap, 1.000 muestras, semilla 2026). | Equipo (2026-11-24) |
 
 ## Supuestos y pendientes
 
 | Tema | Detalle | Acción |
 |---|---|---|
-| Orden del torneo (D29) | Se supone que el número de partido sigue el orden en que se jugaron. | Confirmar con el equipo |
+| Orden del torneo (D29) | Se supone que el número de partido sigue el orden en que se jugaron (la traza no trae fecha ni hora; la hoja `Original` programa los partidos alternando canchas: impares en la 1 y pares en la 2). Lo usan el test (D29) y los tercios del torneo de la 3.1. | Confirmar con el equipo |
 | Datos faltantes | 15 puntos de la traza sin video. Los 12 partidos programados sin traza ni video aparecen en `Partidos_Jugados` con 0 puntos. | Confirmar si se jugaron; si llegan datos, se vuelve a correr la fase 1 |
 | Apellidos | 5 jugadores con un solo apellido en todas las fuentes (Jeronimo Coy, Jorge García, Juliana Gómez, Marcela Velásquez, Miguel Delgado). | Opcional: buscar en Teams |
-| Fases 3 y 4 | Del notebook anterior quedan por revisar: cómo sortear (variables independientes, fila completa del jugador o cópula), la dependencia entre puntos de un mismo jugador y el cambio de nivel a lo largo del torneo. | Revisar al migrar la fase 3 |
+| Cómo sortear en la fase 4 | Datos de la 3.1: `atacante` y `vel_media_mps` del mismo jugador y punto tienen Spearman 0,13; los compañeros se parecen (0,44 en `atacante` y 0,22 en velocidad); cada jugador repite su estilo de un punto al siguiente (mediana 0,46; velocidad 0,17); y la tasa de atacante y la velocidad cambian entre tercios del torneo (p < 0,001), con solo 12 de 30 jugadores en los tres tercios. Sortear cada variable y cada punto por separado no conserva esas relaciones. | Decidir al empezar la fase 4 |
 
 ## Origen
 

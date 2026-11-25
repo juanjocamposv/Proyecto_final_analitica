@@ -6,6 +6,6 @@ Módulos:
 - fuentes: limpieza de la traza y del formulario.
 - video: identidad de cada track, faltantes, evidencia de la pelota y limpieza de posición y velocidad.
 - variables: variables jugador × punto, correlación y tabla equipo × punto para el modelo.
-- modelo: evaluación común de la fase 2 (validación por partido, métricas y gráficos).
-- distribuciones: fase 3 (exploración, ajuste de distribuciones, por jugador y bootstrap).
+- modelo: fase 2 (partición, evaluación por partido, selección por pasos, búsqueda bayesiana, ensamblaje y test).
+- distribuciones: fase 3 (exploración, ajuste de distribuciones con todos los jugadores y por jugador).
 """
