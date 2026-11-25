@@ -3,7 +3,7 @@
 Describe cada columna que usa el proyecto: las tres fuentes crudas que llegan a `data/raw/` (parte A) y las tablas derivadas que genera el notebook [Proyecto_Padel.ipynb](../notebooks/Proyecto_Padel.ipynb) en `data/interim/` (parte B). Las reglas de datos y las decisiones `D#` están en el [README](../README.md#reglas-de-datos). La información del CSV de video sale de la documentación y el código del pipeline de visión del profesor (repositorio `padel-vision-analytics-light`), que no se incluye aquí.
 
 - **Parte A — Fuentes crudas:** [A1. Video](#a1-csv-de-video-base_videos_final_202602csv) · [A2. Traza](#a2-traza-de-partidos-traza_partidos_202602xlsx) · [A3. Formulario](#a3-formulario-de-jugadores-datos_jugadores_padel_202602xlsx)
-- **Parte B — Tablas derivadas:** `equivalencias_nombres`, `jugadores`, `participaciones`, `identidades_video`, `puntos`, `video_limpio`, `distribuciones_jugador` y `processed/tabla_modelo`.
+- **Parte B — Tablas derivadas:** `equivalencias_nombres`, `jugadores`, `participaciones`, `identidades_video`, `puntos`, `video_limpio`, `distribuciones_jugador`, `processed/tabla_modelo` y `processed/ranking_parejas`.
 
 ---
 
@@ -121,6 +121,7 @@ CSV UTF-8 con BOM, salvo `video_limpio`, que es Parquet por su tamaño. Ninguna 
 | `video_limpio.parquet` | frame × jugador (tracks conservados) | 705.888 | 1.2 |
 | `distribuciones_jugador.csv` | jugador (distribuciones para la fase 4) | 30 | 3.3 |
 | `processed/tabla_modelo.csv` | equipo × punto (tabla para el modelo) | 448 | 1.5 |
+| `processed/ranking_parejas.csv` | pareja (resultado de la simulación) | 435 | 4.3–4.5 |
 
 ### `equivalencias_nombres.csv`
 
@@ -275,3 +276,21 @@ Tabla para la fase 2 (1.5, D27): dos filas por punto, una por equipo. Tiene 224 
 | `rival_<variable>` | Lo mismo para el equipo rival |
 
 `<variable>` es cualquiera de las 12 que quedan tras la 1.4 (las 14 de `participaciones` menos `dist_red_m` y `pct_quieto`); con el one-hot son 16 columnas por equipo (D21). En las 0/1 el promedio es la proporción del equipo: `propio_atacante` = 0,5 quiere decir que uno de los dos es atacante.
+
+### `processed/ranking_parejas.csv`
+
+Una fila por pareja posible, ordenadas por puntaje (4.3–4.5, D48, D49).
+
+| Columna | Unidad | Descripción |
+|---|---|---|
+| `pareja` | texto | Nombres de los dos jugadores |
+| `nivel_medio` | 0–2 | Promedio del nivel de los dos (0 = primera vez, 1 = principiante, 2 = intermedio o avanzado) |
+| `estatura_media` | cm | Promedio de la estatura de los dos |
+| `atacante_medio` | proporción | Promedio de la p de atacante de los dos (fase 3) |
+| `diferencia_atacante` | proporción | Diferencia absoluta entre las p de atacante de los dos (0 = mismo estilo) |
+| `vel_media` | m/s | Promedio de la media de las distribuciones de `vel_media_mps` de los dos |
+| `mujeres` | conteo | Cuántas mujeres tiene la pareja (0, 1 o 2); no es variable del modelo |
+| `puntaje` | probabilidad | Probabilidad media de ganar el partido contra las 378 parejas sin jugadores en común (promedio de las réplicas de la 4.3) |
+| `semiancho_sim` | probabilidad | Semiancho del intervalo t del 95 % de las réplicas: error de la simulación |
+| `puntaje_IC95`, `puesto_IC95` | texto | Intervalo del 95 % del puntaje y del puesto en las 100 réplicas de remuestreo de partidos (D49) |
+| `pct_primera`, `pct_top10` | % | Réplicas de remuestreo en que la pareja queda primera y entre las 10 mejores |
