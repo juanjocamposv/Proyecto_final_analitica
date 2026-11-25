@@ -24,7 +24,7 @@ Notebook nuevo (D1): se migra por fase lo que sirve del anterior.
 - [x] **Fase 1** (1.1–1.5): entendimiento; faltantes, atípicos y tratamiento; 14 variables preliminares (D21, D22, D15); correlación (D24, quedan 12); base unificada → `data/processed/tabla_modelo.csv` (224 puntos, 448 filas, D26).
 - [x] **Fase 2** (2.1–2.4): test 80/20 por partido y evaluación común con AUC (D28–D30), logística por pasos con regla estricta (D31), diez modelos con búsqueda bayesiana por partido y pasos por modelo (D32–D35), voto ponderado por accuracy con los 4 mejores (D36–D37), modelo final por AUC de validación (D38) y test con todos los modelos (D39).
 - [x] **Fase 3** (3.1–3.3): solo se sortean `atacante` y `vel_media_mps` (D40) con las 979 filas con video (D41), por jugador (D42); `atacante` Bernoulli y `vel_media_mps` gamma desplazada (10 candidatas, KS y AIC, D43; por jugador, D44) → `data/interim/distribuciones_jugador.csv`.
-- [x] **Fase 4** (4.1–4.5): ensamblaje reentrenado con los 24 partidos desde `data/processed/ensamblaje.joblib` (D45); sorteo independiente (D46); partido a 7 con fórmula comprobada por simulación (D47); todos contra todos de las 435 parejas con réplicas e intervalo t (D48); incertidumbre con 100 réplicas de remuestreo de partidos (D49) → `data/processed/ranking_parejas.csv`.
+- [x] **Fase 4** (4.1–4.5): ensamblaje reentrenado con los 24 partidos desde `data/processed/ensamblaje.joblib` (D45); sorteo independiente (D46); partido a 7 con fórmula comprobada por simulación (D47); todos contra todos de las 435 parejas con réplicas e intervalo t (D48); incertidumbre con 100 réplicas de remuestreo de partidos (D49); ranking por categoría y comparación estatura/género (D50) → `data/processed/ranking_parejas.csv`.
 
 ## Cómo trabajar
 
@@ -38,11 +38,11 @@ Notebook nuevo (D1): se migra por fase lo que sirve del anterior.
    - Las reglas de datos nuevas van a «Reglas de datos» del README.
    - Aquí solo se actualizan los hitos y, si cambian, las reglas de trabajo.
 4. **Notebook único (D1).** Todo avance se agrega en su sección de `Proyecto_Padel.ipynb`, con el formato Objetivo → Decisiones (D#) → Código → Resultado. El texto es corto y concreto, como en los notebooks del profesor: sin relleno, sin repetir lo ya dicho en otra sección. No se crean más notebooks.
-5. **Código en `src/`.** Son 7 módulos: `datos`, `identidades`, `fuentes`, `video`, `variables`, `modelo` (fase 2) y `distribuciones` (fase 3); la fase 4 agrega `simulacion.py`.
+5. **Código en `src/`.** Son 8 módulos: `datos`, `identidades`, `fuentes`, `video`, `variables`, `modelo` (fase 2), `distribuciones` (fase 3) y `simulacion` (fase 4).
    - Funciones reutilizables para cualquier `(partido, punto)`.
    - Los casos especiales se detectan con reglas generales, no con listas de partidos.
 6. **Verificar antes de reportar.**
-   - Ejecutar solo lo nuevo o lo que cambió, cargando lo que ya está guardado (tablas de `data/` y configuración del modelo); no volver a correr todo el notebook, que tarda unos 30 min (pedido del equipo, 2026-11-24). El notebook completo se corre solo si cambia algo de las fases anteriores.
+   - Ejecutar solo lo nuevo o lo que cambió, cargando lo que ya está guardado (tablas de `data/` y configuración del modelo); no volver a correr todo el notebook, que tarda unos 37 min (pedido del equipo, 2026-11-24). El notebook completo se corre solo si cambia algo de las fases anteriores.
    - No reportar números sin haberlos corrido.
    - Revisar los gráficos generados.
 7. **Datos.**

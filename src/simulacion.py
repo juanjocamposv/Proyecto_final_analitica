@@ -7,6 +7,8 @@
 - 4.5 Parejas ideales según su estilo.
 """
 import json
+import warnings
+from contextlib import contextmanager
 from itertools import combinations
 from math import comb
 
@@ -42,6 +44,16 @@ def leer_ensamblaje(ruta=RUTA_ENSAMBLAJE):
     return joblib.load(ruta)
 
 
+@contextmanager
+def _sin_avisos():
+    """Los mismos avisos que la 2.3 ya silencia (SVC(probability=True), D34) y el de scikit-learn cuando sus árboles
+    predicen en hilos. Se fijan aquí porque los hilos no siempre heredan el filtro de la 2.3; no cambian resultados."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', message='The `probability` parameter was deprecated')
+        warnings.filterwarnings('ignore', message='`sklearn.utils.parallel.delayed` should be used')
+        yield
+
+
 class Ensamblaje:
     """Voto ponderado de la 2.4 (D37): p = Σ α × p(modelo), cada modelo simétrico (D30)."""
 
@@ -49,13 +61,14 @@ class Ensamblaje:
         self.config = config
 
     def fit(self, tabla):
-        self.modelos_ = {n: Simetrico(clone(c['modelo'])).fit(tabla[columnas(c['variables'])], tabla['gano'])
-                         for n, c in self.config.items()}
+        with _sin_avisos():
+            self.modelos_ = {n: Simetrico(clone(c['modelo'])).fit(tabla[columnas(c['variables'])], tabla['gano'])
+                             for n, c in self.config.items()}
         return self
 
     def predecir(self, X):
         p = np.zeros(len(X))
-        with joblib.parallel_config(backend='threading', n_jobs=-1):     # árboles en paralelo; mismo resultado
+        with _sin_avisos(), joblib.parallel_config(backend='threading', n_jobs=-1):   # árboles en paralelo; mismo resultado
             for i in range(0, len(X), LOTE):
                 lote = X.iloc[i:i + LOTE]
                 p[i:i + LOTE] = sum(c['peso'] * self.modelos_[n].predict_proba(lote[columnas(c['variables'])])[:, 1]

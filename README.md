@@ -20,7 +20,7 @@ Encontrar las parejas que maximizan la probabilidad de ganar el torneo según su
 | 1. Manejo de datos | Entendimiento de las tres fuentes; faltantes, atípicos y tratamiento; 14 variables preliminares jugador × punto en 3 grupos; correlación (quedan 12); tabla equipo × punto (1.1–1.5) | Hecha en el notebook nuevo (D1–D27) |
 | 2. Predictiva | Partición y evaluación común; naive y logística por pasos; otros modelos del curso; ensamblaje y test (2.1–2.4) | Hecha (D28–D39); rehecha con AUC y búsqueda bayesiana el 2026-11-24 |
 | 3. Distribuciones | Exploración; ajuste con todos los jugadores (10 candidatas, KS y AIC) y por jugador de `atacante` y `vel_media_mps` (3.1–3.3) | Hecha (D40–D44) |
-| 4. Simulación | Del punto al partido; revisión con los partidos reales; todos contra todos de las 435 parejas con el ensamblaje (D38) y las distribuciones de la fase 3; incertidumbre por remuestreo de partidos; parejas ideales según su estilo (4.1–4.5) | Hecha (D45–D49) |
+| 4. Simulación | Del punto al partido; revisión con los partidos reales; todos contra todos de las 435 parejas con el ensamblaje (D38) y las distribuciones de la fase 3; incertidumbre por remuestreo de partidos; parejas ideales según su estilo (4.1–4.5) | Hecha (D45–D50) |
 
 ## Archivos del repositorio
 
@@ -59,7 +59,7 @@ data/
 
 | Archivo | Qué es | Qué hace / cuándo usarlo |
 |---|---|---|
-| `notebooks/Proyecto_Padel.ipynb` | El documento de trabajo del proyecto (D1). | Se ejecuta de principio a fin (unos 30 min; casi todo es la búsqueda bayesiana de la 2.3). Cada sección tiene Objetivo → Decisiones → Código → Resultados, con texto corto como en los notebooks del profesor. Fase 1: 1.1 entendimiento, 1.2 faltantes, atípicos y tratamiento, 1.3 variables preliminares, 1.4 correlación y 1.5 base unificada. Fase 2: 2.1 partición y evaluación, 2.2 naive y logística por pasos, 2.3 otros modelos del curso y 2.4 ensamblaje y test. Fase 3: 3.1 exploración, 3.2 ajuste con todos los jugadores y 3.3 ajuste por jugador y tabla para la fase 4. Fase 4: 4.1 del punto al partido, 4.2 revisión con los partidos reales, 4.3 ranking, 4.4 incertidumbre y 4.5 parejas ideales según su estilo (unos 7 min; para correrla sola se necesitan las tablas de `data/` y `data/processed/ensamblaje.joblib`). |
+| `notebooks/Proyecto_Padel.ipynb` | El documento de trabajo del proyecto (D1). | Se ejecuta de principio a fin (unos 37 min: casi todo es la búsqueda bayesiana de la 2.3 y unos 7 min la fase 4). Cada sección tiene Objetivo → Decisiones → Código → Resultados, con texto corto como en los notebooks del profesor. Fase 1: 1.1 entendimiento, 1.2 faltantes, atípicos y tratamiento, 1.3 variables preliminares, 1.4 correlación y 1.5 base unificada. Fase 2: 2.1 partición y evaluación, 2.2 naive y logística por pasos, 2.3 otros modelos del curso y 2.4 ensamblaje y test. Fase 3: 3.1 exploración, 3.2 ajuste con todos los jugadores y 3.3 ajuste por jugador y tabla para la fase 4. Fase 4: 4.1 del punto al partido, 4.2 revisión con los partidos reales, 4.3 ranking, 4.4 incertidumbre y 4.5 parejas ideales según su estilo (unos 7 min; para correrla sola se necesitan las tablas de `data/` y `data/processed/ensamblaje.joblib`). |
 | `notebooks/Proyecto_Parejas_Padel.ipynb` | El notebook anterior. | Solo consulta: ya se migró lo que servía. Sus fases y sus tablas ya no corresponden a `src/` y no se ejecuta. |
 | `notebooks/referencias/` | Notebooks de clase del profesor. | Solo consulta: la fase 2 replica su estructura y su código. No se ejecutan ni forman parte del pipeline. |
 | `CLAUDE.md` | Instrucciones para el asistente de IA. | Cómo debe trabajar (preguntar antes de decidir, verificar, mantener el repositorio simple) y los hitos del proyecto. No tiene decisiones concretas: remite a este README. |
@@ -210,6 +210,7 @@ Granularidad: **frame × jugador → jugador × punto → equipo × punto**.
 - **Partido (D47):** gana quien llega primero a 7; P(ganar) = Σ C(6 + k, k) p̄⁷ (1 − p̄)ᵏ, k = 0…6.
 - **Ranking (D48):** todos contra todos (378 rivales por pareja); puntaje = probabilidad media de ganar el partido; réplicas hasta que el semiancho del intervalo t sea ≤ 0,005.
 - **Incertidumbre (D49):** 100 réplicas de remuestreo de partidos; intervalos del puntaje y del puesto, % de réplicas en el puesto 1 y en el top 10.
+- **Estatura y género (D50):** el modelo no cambia; la 4.5 compara la logística con estatura, con `mujer` en vez de estatura y sin ninguna, y muestra el ranking por categoría (dos hombres, mixta, dos mujeres).
 - **Resultado:** `data/processed/ranking_parejas.csv`.
 
 ## Registro de decisiones
@@ -267,14 +268,13 @@ Ordenado como el notebook. Solo están las decisiones que aplican al notebook nu
 | D47 | 4.1 | El partido lo gana la primera pareja en llegar a 7 (así terminaron los 27 partidos, de 7-0 a 7-6). Con D46 todos los puntos de un enfrentamiento tienen la misma probabilidad p̄, así que P(ganar) = Σ C(6 + k, k) p̄⁷ (1 − p̄)ᵏ, k = 0…6; se comprueba con 10.000 partidos simulados punto por punto. | Equipo (2026-11-24) |
 | D48 | 4.3 | Todos contra todos: cada pareja contra las 378 que no comparten jugador (82.215 enfrentamientos); puntaje = probabilidad media de ganar el partido. En cada enfrentamiento se sortean 4 puntos nuevos y se usa la fórmula de D47. Error de la simulación: réplicas independientes e intervalo t del 95 %; 5 réplicas piloto y, con su mayor semiancho, se calculan y completan las necesarias para que sea ≤ 0,005 (R = 5 × (semiancho / 0,005)²). | Equipo (2026-11-24; diseño de la incertidumbre delegado a Claude según lo usual en simulación) |
 | D49 | 4.4 | Incertidumbre de los datos: 100 réplicas de remuestreo de partidos (semilla 2026); en cada una se reentrena el ensamblaje (mismos hiperparámetros y pesos), se reajustan las distribuciones por jugador (D42–D44) y se repite el todos contra todos con 1 sorteo por enfrentamiento. Por pareja: intervalo del 95 % (percentiles) del puntaje y del puesto, % de réplicas en el puesto 1 y en el top 10. | Equipo (2026-11-24; diseño delegado a Claude) |
+| D50 | 4.5 | El puntaje sigue sobre todo a la estatura, y estatura y `mujer` tienen −0,78 (1.4). No se cambia el modelo (sus variables se fijaron antes de correr, D31); la 4.5 agrega (a) la logística de la 2.2 con `mujer` en vez de estatura y sin ninguna de las dos, con la misma validación (D30), y (b) el ranking por categoría (dos hombres, mixta, dos mujeres). La limitación se reporta: con estos datos no se puede separar la estatura del género. | Equipo (2026-11-24, por recomendación de Claude) |
 
 ## Supuestos y pendientes
 
 | Tema | Detalle | Acción |
 |---|---|---|
-| Estatura y género en el ranking (4.5) | El puntaje sigue sobre todo a la estatura media (Spearman 0,86) y las 15 primeras parejas son de dos hombres. El modelo no usa `mujer`, pero estatura y `mujer` tienen −0,78 (1.4), así que con estos datos no se puede separar una de la otra. | Revisar con el equipo y el profesor cómo presentarlo |
 | Datos faltantes | 15 puntos de la traza sin video. Los 12 partidos programados sin traza ni video aparecen en `Partidos_Jugados` con 0 puntos. | Confirmar si se jugaron; si llegan datos, se vuelve a correr la fase 1 |
-| Apellidos | 5 jugadores con un solo apellido en todas las fuentes (Jeronimo Coy, Jorge García, Juliana Gómez, Marcela Velásquez, Miguel Delgado). | Opcional: buscar en Teams |
 
 ## Origen
 
